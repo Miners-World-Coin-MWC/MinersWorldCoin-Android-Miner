@@ -1,0 +1,34 @@
+package com.nugetzrul3.minersworldcoinandroidminer
+
+import androidx.appcompat.app.AppCompatActivity
+import android.os.Bundle
+import android.widget.TextView
+import androidx.appcompat.widget.Toolbar
+
+class SettingsPage : AppCompatActivity() {
+    protected lateinit var sharedpref: SharedPref
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        sharedpref = SharedPref(this)
+        if (sharedpref.loadNightModestate() == true) {
+            setTheme(R.style.DarkTheme)
+        }
+        else setTheme(R.style.AppTheme)
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_settings_page)
+
+        val settingstoolbar: Toolbar = findViewById(R.id.settingstoolbar)
+        setSupportActionBar(settingstoolbar)
+
+        getSupportActionBar()?.setDisplayHomeAsUpEnabled(true)
+
+        getvernumber()
+    }
+
+    fun getvernumber() {
+        val version: String = getPackageManager().getPackageInfo(getPackageName(), 0).versionName
+        val versionTextView: TextView = findViewById(R.id.version_number)
+        versionTextView.setText("minersworldcoin Android Miner \n" + version)
+    }
+
+}

@@ -1,4 +1,4 @@
-package com.nugetzrul3.sugarchainandroidminer
+package com.nugetzrul3.minersworldcoinandroidminer
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

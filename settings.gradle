@@ -1,2 +1,2 @@
-include ':app', ':sugarchainmininglibrary'
+include ':app', ':minersworldcoinmininglibrary'
 rootProject.name='My Application'

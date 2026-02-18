@@ -15,7 +15,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="?attr/toolbarcolor"
-        app:title="Sugarchain Android Miner"
+        app:title="minersworldcoin Android Miner"
         app:titleTextColor="?attr/textcolor" />
 
     <androidx.cardview.widget.CardView

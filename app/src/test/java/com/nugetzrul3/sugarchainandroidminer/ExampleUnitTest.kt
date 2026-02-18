@@ -1,4 +1,4 @@
-package com.nugetzrul3.sugarchainandroidminer
+package com.nugetzrul3.minersworldcoinandroidminer
 
 import org.junit.Test
 
