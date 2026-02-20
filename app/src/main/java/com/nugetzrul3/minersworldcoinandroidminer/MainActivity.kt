@@ -155,11 +155,11 @@ class MainActivity : AppCompatActivity() {
             R.id.website ->
                 openUrl("https://minersworld.org")
 
-            R.id.Sugargithub ->
+            R.id.MinersWorldCoingithub ->
                 openUrl("https://github.com/Miners-World-Coin-MWC")
 
             R.id.Donate ->
-                openUrl("https://1explorer.minersworldcoin.org/address/96geMyKf4fptuj2FhwNCMueZ1kLJmnEdMw")
+                openUrl("https://miners-world-coin-mwc.github.io/explorer/#/address/9R5aTkmbJs7pPL4hEXvTps1EyStYbHgGTF")
 
             R.id.settings ->
                 startActivity(Intent(this, SettingsPage::class.java))

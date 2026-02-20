@@ -6,9 +6,9 @@
 cmake_minimum_required(VERSION 3.4.1)
 
 
-
 if (${ANDROID_ABI} STREQUAL "x86")
-    set(CMAKE_SHARED_LINKER_FLAGS "-Wall -v -Wl,--no-warn-shared-textrel")
+    # Removed obsolete --no-warn-shared-textrel for NDK 25+
+    set(CMAKE_SHARED_LINKER_FLAGS "-Wall -v")
 endif()
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/src/main/cpp/libcpuminer)
