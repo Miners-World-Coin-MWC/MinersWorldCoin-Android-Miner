@@ -2,311 +2,239 @@ package com.nugetzrul3.minersworldcoinandroidminer
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.graphics.PorterDuff
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
-import android.os.Bundle
-import android.os.Handler
-import android.os.Message
+import android.os.*
 import android.text.method.ScrollingMovementMethod
 import android.util.Log
 import android.view.Menu
-import android.view.MenuInflater
 import android.view.MenuItem
-import android.widget.*
+import android.widget.ArrayAdapter
+import android.widget.Toast
 import androidx.appcompat.widget.Toolbar
+import com.nugetzrul3.minersworldcoinandroidminer.databinding.ActivityMainBinding
 import com.nugetzrul3.minersworldcoinmininglibrary.SugarMiner
-import kotlinx.android.synthetic.main.activity_main.*
 import org.json.JSONObject
-import java.io.*
-import java.lang.NumberFormatException
+import java.io.File
+import java.io.FileInputStream
+import java.io.IOException
 import java.lang.ref.WeakReference
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
 
-
 class MainActivity : AppCompatActivity() {
-    lateinit var sharedpref: SharedPref
 
-    private var sugarandminer: SugarMiner? = null
+    private lateinit var binding: ActivityMainBinding
+    private lateinit var sharedpref: SharedPref
+
+    private var sugarMiner: SugarMiner? = null
     private val logs: BlockingQueue<String?> = LinkedBlockingQueue(LOG_LINES)
 
-    private class JNIHandler(activity: MainActivity) : Handler() {
-        private val activity: WeakReference<MainActivity>
-        override fun handleMessage(msg: Message) {
-            val activity = activity.get()
-            if (activity != null) {
-                val log = msg.data.getString("log")
-                val logs = Utils.rotateStringQueue(activity.logs, log)
-                activity.textView6.text = logs
-                Log.d(TAG, logs)
-            }
-        }
+    private class JNIHandler(activity: MainActivity) :
+        Handler(Looper.getMainLooper()) {
 
-        init {
-            this.activity = WeakReference(activity)
+        private val activityRef = WeakReference(activity)
+
+        override fun handleMessage(msg: Message) {
+            activityRef.get()?.let { activity ->
+                val log = msg.data.getString("log")
+                activity.updateLogs(log)
+            }
         }
     }
 
-    @SuppressLint("ResourceType")
+    private fun updateLogs(logText: String?) {
+        val rotated = Utils.rotateStringQueue(logs, logText)
+        binding.textView6.text = rotated
+        Log.d(TAG, rotated)
+    }
+
+    @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {
 
-        shandler = JNIHandler(this)
-
-        sugarandminer = SugarMiner(shandler)
-
         sharedpref = SharedPref(this)
+
         if (sharedpref.loadNightModestate() == true) {
             setTheme(R.style.DarkTheme)
+        } else {
+            setTheme(R.style.AppTheme)
         }
-        else setTheme(R.style.AppTheme)
+
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        val switch: Switch = findViewById(R.id.darkmode)
-        if (sharedpref.loadNightModestate() == true) {
-            switch.setChecked(true)
-        }
-        switch.setOnCheckedChangeListener { buttonView, isChecked ->
-            if (isChecked) {
-                sharedpref.setNightModeState(true)
-                saveConfig()
-                restartapp()
-                setText()
-            }
-            else if (!isChecked) {
-                sharedpref.setNightModeState(false)
-                saveConfig()
-                restartapp()
-                setText()
-            }
-        }
 
-        val sugartoolbar: Toolbar = findViewById(R.id.toolbar)
-        setSupportActionBar(sugartoolbar)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        val arrayspinner = arrayOf("--ALGORITHM--", "yespower", "yespowersugar", "yespowermwc", "yespoweradvc", "yespowerlitb", "yespoweriots",  "yespowermbc", "yespoweritc", "yespoweriso")
-        val spinner: Spinner = findViewById(R.id.spinner)
-        val adapter = ArrayAdapter<String>(this, R.layout.spinner_item, arrayspinner)
+        val handler = JNIHandler(this)
+        sugarMiner = SugarMiner(handler)
+
+        setupUI()
+        loadConfig()
+        updateButtonState()
+    }
+
+    private fun setupUI() {
+
+        setSupportActionBar(binding.toolbar as Toolbar)
+
+        binding.textView6.movementMethod = ScrollingMovementMethod()
+
+        val algorithms = arrayOf(
+            "--ALGORITHM--", "yespower", "yespowersugar",
+            "yespowermwc", "yespoweradvc", "yespowerlitb",
+            "yespoweriots", "yespowermbc", "yespoweritc", "yespoweriso"
+        )
+
+        val adapter = ArrayAdapter(this, R.layout.spinner_item, algorithms)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinner.setAdapter(adapter)
+        binding.spinner.adapter = adapter
 
-        val rotate: TextView = findViewById(R.id.textView6)
-        rotate.movementMethod = ScrollingMovementMethod()
+        binding.darkmode.isChecked = sharedpref.loadNightModestate() == true
+        binding.darkmode.setOnCheckedChangeListener { _, isChecked ->
+            sharedpref.setNightModeState(isChecked)
+            saveConfig()
+            restartApp()
+        }
 
-        changeButtonText()
-        setText()
+        binding.button.setOnClickListener {
+            toggleMining()
+        }
+    }
 
+    private fun toggleMining() {
+
+        if (binding.button.text == "Start") {
+
+            if (binding.editText.text.isNullOrEmpty()) {
+                binding.textView6.text = "Error, no pool url specified"
+                sharedpref.miningtrue(false)
+                return
+            }
+
+            binding.button.text = "Stop"
+
+            val threads = binding.editText5.text.toString().toIntOrNull() ?: 0
+
+            sugarMiner?.initMining()
+            sugarMiner?.beginMiner(
+                binding.editText.text.toString(),
+                binding.editText2.text.toString(),
+                binding.editText3.text.toString(),
+                threads,
+                SugarMiner.Algorithms.YESPOWER
+            )
+
+            sharedpref.setButtonModeState(false)
+            sharedpref.miningtrue(true)
+
+        } else {
+
+            binding.button.text = "Start"
+            sugarMiner?.stopMining()
+            sharedpref.setButtonModeState(true)
+        }
+    }
+
+    private fun updateButtonState() {
+        binding.button.text =
+            if (sharedpref.loadButtonModestate() == true) "Start" else "Stop"
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        val inflater: MenuInflater = menuInflater
-        inflater.inflate(R.menu.menu, menu)
+        menuInflater.inflate(R.menu.menu, menu)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        when(item.getItemId()) {
-            R.id.mygithub -> {
-                val parse1 = Uri.parse("https://github.com/CryptoLover705")
-                startActivity(Intent(Intent.ACTION_VIEW, parse1))
-                return true
-                }
-            R.id.website -> {
-                val parse2 = Uri.parse("https://minersworld.org")
-                startActivity(Intent(Intent.ACTION_VIEW, parse2))
-                return true
-            }
-            R.id.Sugargithub -> {
-                val parse3 = Uri.parse("https://github.com/Miners-World-Coin-MWC")
-                startActivity(Intent(Intent.ACTION_VIEW, parse3))
-                return true
-            }
-            R.id.Donate -> {
-                val parse4 = Uri.parse("https://1explorer.minersworldcoin.org/address/96geMyKf4fptuj2FhwNCMueZ1kLJmnEdMw")
-                startActivity(Intent(Intent.ACTION_VIEW, parse4))
-                return true
-            }
-            R.id.settings -> {
-                val intent = Intent(this, SettingsPage::class.java)
-                startActivity(intent)
-            }
+
+        when (item.itemId) {
+
+            R.id.mygithub ->
+                openUrl("https://github.com/CryptoLover705")
+
+            R.id.website ->
+                openUrl("https://minersworld.org")
+
+            R.id.Sugargithub ->
+                openUrl("https://github.com/Miners-World-Coin-MWC")
+
+            R.id.Donate ->
+                openUrl("https://1explorer.minersworldcoin.org/address/96geMyKf4fptuj2FhwNCMueZ1kLJmnEdMw")
+
+            R.id.settings ->
+                startActivity(Intent(this, SettingsPage::class.java))
+
             R.id.stats -> {
-                val walletaddress: EditText = findViewById(R.id.editText2)
                 val intent = Intent(this, MiningStats::class.java)
-                intent.putExtra("walletaddress", walletaddress.getText().toString())
+                intent.putExtra("walletaddress", binding.editText2.text.toString())
                 startActivity(intent)
             }
-            }
+        }
 
-
-        return false
+        return true
     }
 
-    private var doublebackpressedonce = false
+    private fun openUrl(url: String) {
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }
 
     override fun onBackPressed() {
-        if (doublebackpressedonce) {
+        if (doubleBackPressed) {
             super.onBackPressed()
-            return
+        } else {
+            doubleBackPressed = true
+            Toast.makeText(this, "Click back again to Exit", Toast.LENGTH_SHORT).show()
+            Handler(Looper.getMainLooper()).postDelayed(
+                { doubleBackPressed = false }, 1500
+            )
         }
-        this.doublebackpressedonce = true
-        Toast.makeText(this, "Click back again to Exit", Toast.LENGTH_SHORT).show()
-        Handler().postDelayed(Runnable { doublebackpressedonce = false }, 1500)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(!hasFocus)
+        super.onWindowFocusChanged(hasFocus)
         saveConfig()
     }
 
-    private fun changeButtonText() {
-        val start_button: Button = findViewById(R.id.button)
-        if (sharedpref.loadButtonModestate() == true) {
-            start_button.setText("Start")
-        } else if (sharedpref.loadButtonModestate() == false) {
-            start_button.setText("Stop")
+    private fun saveConfig() {
+        val json = JSONObject().apply {
+            put("URL", binding.editText.text)
+            put("User", binding.editText2.text)
+            put("Passwd", binding.editText3.text)
+            put("CPU", binding.editText5.text)
+            put("Algorithm", binding.spinner.selectedItemPosition)
         }
-        start_button.setOnClickListener {
 
-            fun stoporstart() {
-                if (start_button.text == "Start") {
-                    start_button.setText("Stop")
-                    val poolurltxt: EditText = findViewById(R.id.editText)
-                    val walletaddr: EditText = findViewById(R.id.editText2)
-                    val pwd: EditText = findViewById(R.id.editText3)
-                    val threadsedittext: EditText = findViewById(R.id.editText5)
-                    val log: TextView = findViewById(R.id.textView6)
-                    val algo = SugarMiner.Algorithms.YESPOWER
-                    var threads = 0
-                    if (poolurltxt.text.toString() == "") {
-                        log.setText("Error, no pool url specified")
-                        sharedpref.miningtrue(false)
-                    } else {
-                        sugarandminer!!.initMining()
-                        try {
-                            threads = threadsedittext.text.toString().toInt()
-                            sugarandminer!!.beginMiner(
-                                poolurltxt.text.toString(),
-                                walletaddr.text.toString(),
-                                pwd.text.toString(),
-                                threads,
-                                algo
-                            )
-                        } catch (e: NumberFormatException) {
-                            e.printStackTrace()
-                        }
-                        sharedpref.setButtonModeState(false)
-                        sharedpref.miningtrue(true)
-                    }
-                } else if (start_button.text == "Stop") {
-                    start_button.setText("Start")
-                    if (sharedpref.loadminingstate() == true) {
-                        sugarandminer!!.stopMining()
-                        sharedpref.setButtonModeState(true)
-                    } else {
-                        return
-                    }
-                }
-
-            }
-            stoporstart()
-        }
+        val file = File(filesDir, "config.json")
+        file.writeText(json.toString())
     }
 
-
-    fun saveConfig() {
-
-        var Pooltxt = findViewById(R.id.editText) as EditText
-        var Usertxt = findViewById(R.id.editText2) as EditText
-        var Passwdtxt = findViewById(R.id.editText3) as EditText
-        var thrdstxt = findViewById(R.id.editText5) as EditText
-        var algorithm = findViewById(R.id.spinner) as Spinner
-
-
-
-        var Settings = JSONObject()
-        Settings.put("URL", Pooltxt.text)
-        Settings.put("User", Usertxt.text)
-        Settings.put("Passwd", Passwdtxt.text)
-        Settings.put("CPU", thrdstxt.text)
-        Settings.put("Algorithm", algorithm.selectedItemPosition.toString())
-
-
-
-
-        var context = applicationContext.filesDir.path
-        var file = File(context + "config.json")
-        if(!file.exists()){
-            file.createNewFile()
-            file.writeText(Settings.toString())
-        }
-        else if(file.exists()){
-            file.writeText(Settings.toString())
-        }
-
-    }
-
-    fun setText() {
-        var json: String
-
-        val serverset: EditText = findViewById(R.id.editText)
-        val userrset: EditText = findViewById(R.id.editText2)
-        val passwdset: EditText = findViewById(R.id.editText3)
-        val thrdsset: EditText = findViewById(R.id.editText5)
-        val spinnerset: Spinner = findViewById(R.id.spinner)
+    private fun loadConfig() {
+        val file = File(filesDir, "config.json")
+        if (!file.exists()) return
 
         try {
+            val json = FileInputStream(file).bufferedReader().use { it.readText() }
+            val obj = JSONObject(json)
 
-            var context = applicationContext.filesDir.path
-            val path = context + "config.json"
+            binding.editText.setText(obj.getString("URL"))
+            binding.editText2.setText(obj.getString("User"))
+            binding.editText3.setText(obj.getString("Passwd"))
+            binding.editText5.setText(obj.getString("CPU"))
+            binding.spinner.setSelection(obj.getInt("Algorithm"))
 
-            val inputStream: InputStream =
-                FileInputStream("$path")
-            json = inputStream.bufferedReader().use { it.readText() }
-
-
-            var jsobobj = JSONObject(json)
-
-            for (i in 0..jsobobj.length() - 1) {
-                var server = jsobobj.get("URL")
-                var username = jsobobj.get("User")
-                var password = jsobobj.get("Passwd")
-                var threads = jsobobj.get("CPU")
-                var algo = jsobobj.getInt("Algorithm")
-
-                serverset.setText(server.toString())
-                userrset.setText(username.toString())
-                passwdset.setText(password.toString())
-                thrdsset.setText(threads.toString())
-                spinnerset.setSelection(algo)
-
-            }
         } catch (e: IOException) {
             e.printStackTrace()
         }
-
-
     }
 
-    fun restartapp() {
-        val intent = Intent(this, MainActivity::class.java)
-        startActivity(intent)
+    private fun restartApp() {
+        startActivity(Intent(this, MainActivity::class.java))
+        finish()
     }
-
-
 
     companion object {
         private const val LOG_LINES = 1000
-        private var shandler: JNIHandler? = null
-        private const val TAG = "Sugarminer"
+        private const val TAG = "SugarMiner"
+        private var doubleBackPressed = false
     }
-
 }
-
-
-
-
-
-
-
-

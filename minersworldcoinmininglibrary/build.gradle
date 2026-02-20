@@ -5,7 +5,7 @@ plugins {
 
 android {
 
-    namespace "com.nugetzrul3.sugarchainmininglibrary"
+    namespace "com.nugetzrul3.minersworldcoinmininglibrary"
 
     compileSdk 34
 
