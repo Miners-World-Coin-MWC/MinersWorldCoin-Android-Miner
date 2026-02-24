@@ -9,7 +9,6 @@
     android:background="?attr/backgroundcolor"
     tools:context=".MainActivity">
 
-
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
@@ -23,9 +22,11 @@
         android:layout_height="wrap_content"
         android:layout_margin="6dp"
         app:cardBackgroundColor="?attr/cardbkgcolor">
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
+
             <TextView
                 android:id="@+id/textView1"
                 android:layout_width="match_parent"
@@ -38,7 +39,6 @@
                 android:text="@string/textView1"
                 android:textColor="?attr/textcolor"
                 android:textSize="15sp" />
-
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
@@ -56,48 +56,63 @@
 
     <EditText
         android:id="@+id/editText2"
-        android:textColor="?attr/textcolor"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:ems="10"
-        android:textColorHint="?attr/textcolor"
         android:hint="@string/hint2"
         android:inputType="textPersonName"
         android:singleLine="true"
+        android:textColor="?attr/textcolor"
+        android:textColorHint="?attr/textcolor"
         app:backgroundTint="?attr/textcolor"
         android:textSize="14sp" />
 
     <EditText
         android:id="@+id/editText3"
-        android:textColor="?attr/textcolor"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:ems="10"
-        android:textColorHint="?attr/textcolor"
         android:hint="@string/hint3"
         android:inputType="textPersonName"
-        app:backgroundTint="?attr/textcolor"
-        android:textSize="14sp" />
-
-
-    <EditText
-        android:id="@+id/editText5"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ems="10"
-        android:hint="@string/hint4"
         android:textColor="?attr/textcolor"
-        android:inputType="number"
         android:textColorHint="?attr/textcolor"
         app:backgroundTint="?attr/textcolor"
         android:textSize="14sp" />
 
+    <!-- THREAD LABEL -->
+    <TextView
+        android:id="@+id/threadLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Thread Count"
+        android:textColor="?attr/textcolor"
+        android:paddingTop="10dp"
+        android:paddingBottom="4dp"
+        android:textSize="14sp" />
+
+    <!-- THREAD SPINNER -->
+    <Spinner
+        android:id="@+id/threadSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:backgroundTint="?attr/textcolor" />
+
+    <!-- ALGORITHM LABEL -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Algorithm"
+        android:textColor="?attr/textcolor"
+        android:paddingTop="10dp"
+        android:paddingBottom="4dp"
+        android:textSize="14sp" />
+
+    <!-- ALGORITHM SPINNER -->
     <Spinner
         android:id="@+id/spinner"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:backgroundTint="?attr/textcolor"
-        />
+        app:backgroundTint="?attr/textcolor" />
 
     <Button
         android:id="@+id/button"
@@ -105,7 +120,6 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="10dp"
         android:background="@drawable/roundshapebutton"
-        android:fadingEdge="horizontal"
         android:text="Start"
         android:textColor="?attr/textcolor" />
 
@@ -125,9 +139,9 @@
     <TextView
         android:id="@+id/textView6"
         android:layout_width="match_parent"
-        android:gravity="bottom"
         android:layout_height="wrap_content"
+        android:gravity="bottom"
         android:textColor="?attr/textcolor"
-        android:scrollbars="vertical"/>
+        android:scrollbars="vertical" />
 
 </LinearLayout>

@@ -75,31 +75,57 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupUI() {
 
-        setSupportActionBar(binding.toolbar as Toolbar)
+    setSupportActionBar(binding.toolbar)
 
-        binding.textView6.movementMethod = ScrollingMovementMethod()
+    binding.textView6.movementMethod = ScrollingMovementMethod()
 
-        val algorithms = arrayOf(
-            "--ALGORITHM--", "yespower", "yespowersugar",
-            "yespowermwc", "yespoweradvc", "yespowerlitb",
-            "yespoweriots", "yespowermbc", "yespoweritc", "yespoweriso"
-        )
+    // --------- ALGORITHM LIST ----------
+    val algorithms = arrayOf(
+        "yespower",
+        "yespowersugar",
+        "yespowermwc",
+        "yespoweradvc",
+        "yespowerlitb",
+        "yespoweriots",
+        "yespowermbc",
+        "yespoweritc",
+        "yespoweriso"
+    )
 
-        val adapter = ArrayAdapter(this, R.layout.spinner_item, algorithms)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        binding.spinner.adapter = adapter
+    val adapter = ArrayAdapter(this, R.layout.spinner_item, algorithms)
+    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+    binding.spinner.adapter = adapter
 
-        binding.darkmode.isChecked = sharedpref.loadNightModestate() == true
-        binding.darkmode.setOnCheckedChangeListener { _, isChecked ->
-            sharedpref.setNightModeState(isChecked)
-            saveConfig()
-            restartApp()
-        }
+    // --------- AUTO DETECT THREADS ----------
+    val maxThreads = Runtime.getRuntime().availableProcessors()
+    binding.threadLabel.text = "Thread Count (Max: $maxThreads)"
 
-        binding.button.setOnClickListener {
-            toggleMining()
-        }
+    val threadList = (1..maxThreads).map { it.toString() }
+
+    val threadAdapter = ArrayAdapter(
+        this,
+        R.layout.spinner_item,
+        threadList
+    )
+
+    threadAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+    binding.threadSpinner.adapter = threadAdapter
+
+    // Default to max threads selected
+    binding.threadSpinner.setSelection(threadList.size - 1)
+
+    // --------- DARK MODE ----------
+    binding.darkmode.isChecked = sharedpref.loadNightModestate() == true
+    binding.darkmode.setOnCheckedChangeListener { _, isChecked ->
+        sharedpref.setNightModeState(isChecked)
+        saveConfig()
+        restartApp()
     }
+
+    binding.button.setOnClickListener {
+        toggleMining()
+    }
+}
 
     private fun toggleMining() {
 
@@ -113,7 +139,7 @@ class MainActivity : AppCompatActivity() {
 
             binding.button.text = "Stop"
 
-            val threads = binding.editText5.text.toString().toIntOrNull() ?: 0
+            val threads = binding.threadSpinner.selectedItem.toString().toInt()
 
             sugarMiner?.initMining()
             sugarMiner?.beginMiner(
@@ -200,7 +226,7 @@ class MainActivity : AppCompatActivity() {
             put("URL", binding.editText.text)
             put("User", binding.editText2.text)
             put("Passwd", binding.editText3.text)
-            put("CPU", binding.editText5.text)
+            put("CPU", binding.threadSpinner.selectedItemPosition)
             put("Algorithm", binding.spinner.selectedItemPosition)
         }
 
@@ -219,7 +245,7 @@ class MainActivity : AppCompatActivity() {
             binding.editText.setText(obj.getString("URL"))
             binding.editText2.setText(obj.getString("User"))
             binding.editText3.setText(obj.getString("Passwd"))
-            binding.editText5.setText(obj.getString("CPU"))
+            binding.threadSpinner.setSelection(obj.getInt("CPU"))
             binding.spinner.setSelection(obj.getInt("Algorithm"))
 
         } catch (e: IOException) {
