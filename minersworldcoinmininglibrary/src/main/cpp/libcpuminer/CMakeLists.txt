@@ -19,9 +19,12 @@ add_library(
     sha2-arm.S
     sha2-x64.S
     sha2-x86-notextrel.S
+    sha256.c
     util.c
     crypto/blake2b.c
     power2b.c
+    yespowerMWC.c
+    yespowerADVC.c
     libcpuminer.c
 )
 

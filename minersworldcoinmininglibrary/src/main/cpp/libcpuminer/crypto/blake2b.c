@@ -32,7 +32,7 @@
 #include <string.h>
 
 #include "crypto/sph_types.h"
-#include "utils/sysendian.h"
+#include "utils/sysendian_legacy.h"
 #include "blake2b.h"
 
 // Cyclic right rotation.

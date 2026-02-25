@@ -17,8 +17,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-#include "yespower.h"
-#include "yespower.c"
+#include "yespower_legacy.h"
+#include "yespower_legacy.c"
 
 #include <stdbool.h>
 struct work_restart {
@@ -39,11 +39,12 @@ void yespower_hash( const char *input, char *output, uint32_t len )
     static yespower_params_t params = {
         .N = 2048,
         .r = 32,
-        .pers = "Now I am become Death, the destroyer of worlds",
+        .pers = (const uint8_t *)
+			"Now I am become Death, the destroyer of worlds",
         .perslen = 46
     };
 
-    yespower_tls( (yespower_binary_t*)input, len, &params, (yespower_binary_t*)output );
+    yespower_tls_legacy( (yespower_binary_t*)input, len, &params, (yespower_binary_t*)output );
 }
 
 int scanhash_power2b(int thr_id, uint32_t *pdata, const uint32_t *ptarget,

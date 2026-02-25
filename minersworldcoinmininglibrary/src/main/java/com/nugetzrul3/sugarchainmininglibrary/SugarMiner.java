@@ -13,14 +13,14 @@ public class SugarMiner {
 
     public enum Algorithms {
         YESPOWER,
-        YESPOWERSUGAR,
+        // YESPOWERSUGAR,
         YESPOWERMWC,
         YESPOWERADVC,
-        YESPOWERLITB,
-        YESPOWERIOTS,
-        YESPOWERMBC,
-        YESPOWERITC,
-        YESPOWERISO,
+        // YESPOWERLITB,
+        // YESPOWERIOTS,
+        // YESPOWERMBC,
+        // YESPOWERITC,
+        // YESPOWERISO,
     }
 
     private static Handler sHandler;
@@ -33,12 +33,12 @@ public class SugarMiner {
             case YESPOWER:
                 return startMining(pool, username, pwd, threads, 0);
             case YESPOWERMWC:
+                return startMining(pool, username, pwd, threads, 2);
+            case YESPOWERADVC:
+                return startMining(pool, username, pwd, threads, 3);
+            /*case YESPOWERSUGAR:
                 return startMining(pool, username, pwd, threads, 1);
-            // case YESPOWERADVC:
-            //     return startMining(pool, username, pwd, threads, 1);
-            // case YESPOWERSUGAR:
-            //     return startMining(pool, username, pwd, threads, 1);
-            /*case YESPOWERLITB:
+            case YESPOWERLITB:
                 return startMining(pool, username, pwd, threads, 3);
             case YESPOWERIOTS:
                 return startMining(pool, username, pwd, threads, 4);

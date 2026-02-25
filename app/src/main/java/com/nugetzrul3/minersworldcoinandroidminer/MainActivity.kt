@@ -70,7 +70,10 @@ class MainActivity : AppCompatActivity() {
 
         setupUI()
         loadConfig()
-        updateButtonState()
+
+        // Ensure miner always starts stopped
+        sharedpref.miningtrue(false)
+        binding.button.text = "Start"
     }
 
     private fun setupUI() {
@@ -82,55 +85,62 @@ class MainActivity : AppCompatActivity() {
     // --------- ALGORITHM LIST ----------
     val algorithms = arrayOf(
         "yespower",
-        "yespowersugar",
+        /*"yespowersugar",*/
         "yespowermwc",
         "yespoweradvc",
-        "yespowerlitb",
+        /*"yespowerlitb",
         "yespoweriots",
         "yespowermbc",
         "yespoweritc",
-        "yespoweriso"
+        "yespoweriso"*/
     )
 
     val adapter = ArrayAdapter(this, R.layout.spinner_item, algorithms)
-    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-    binding.spinner.adapter = adapter
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.spinner.adapter = adapter
 
-    // --------- AUTO DETECT THREADS ----------
-    val maxThreads = Runtime.getRuntime().availableProcessors()
-    binding.threadLabel.text = "Thread Count (Max: $maxThreads)"
+        // --------- AUTO DETECT THREADS ----------
+        val maxThreads = Runtime.getRuntime().availableProcessors()
+        binding.threadLabel.text = "Thread Count (Max: $maxThreads)"
 
-    val threadList = (1..maxThreads).map { it.toString() }
+        val threadList = (1..maxThreads).map { it.toString() }
 
-    val threadAdapter = ArrayAdapter(
-        this,
-        R.layout.spinner_item,
-        threadList
-    )
+        val threadAdapter = ArrayAdapter(
+            this,
+            R.layout.spinner_item,
+            threadList
+        )
 
-    threadAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-    binding.threadSpinner.adapter = threadAdapter
+        threadAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.threadSpinner.adapter = threadAdapter
 
-    // Default to max threads selected
-    binding.threadSpinner.setSelection(threadList.size - 1)
+        // Default to max threads selected
+        binding.threadSpinner.setSelection(threadList.size - 1)
 
-    // --------- DARK MODE ----------
-    binding.darkmode.isChecked = sharedpref.loadNightModestate() == true
-    binding.darkmode.setOnCheckedChangeListener { _, isChecked ->
-        sharedpref.setNightModeState(isChecked)
-        saveConfig()
-        restartApp()
+        // --------- DARK MODE ----------
+        binding.darkmode.isChecked = sharedpref.loadNightModestate() == true
+        binding.darkmode.setOnCheckedChangeListener { _, isChecked ->
+            sharedpref.setNightModeState(isChecked)
+            saveConfig()
+            restartApp()
+        }
+
+        binding.button.setOnClickListener {
+            toggleMining()
+        }
     }
 
-    binding.button.setOnClickListener {
-        toggleMining()
+    private fun getSelectedAlgorithm(): SugarMiner.Algorithms {
+        return when (binding.spinner.selectedItem.toString()) {
+            "yespower" -> SugarMiner.Algorithms.YESPOWER
+            "yespowermwc" -> SugarMiner.Algorithms.YESPOWERMWC
+            "yespoweradvc" -> SugarMiner.Algorithms.YESPOWERADVC
+            else -> SugarMiner.Algorithms.YESPOWERMWC
+        }
     }
-}
 
     private fun toggleMining() {
-
         if (binding.button.text == "Start") {
-
             if (binding.editText.text.isNullOrEmpty()) {
                 binding.textView6.text = "Error, no pool url specified"
                 sharedpref.miningtrue(false)
@@ -140,6 +150,7 @@ class MainActivity : AppCompatActivity() {
             binding.button.text = "Stop"
 
             val threads = binding.threadSpinner.selectedItem.toString().toInt()
+            val algo = getSelectedAlgorithm() // <- use selected algorithm
 
             sugarMiner?.initMining()
             sugarMiner?.beginMiner(
@@ -147,17 +158,17 @@ class MainActivity : AppCompatActivity() {
                 binding.editText2.text.toString(),
                 binding.editText3.text.toString(),
                 threads,
-                SugarMiner.Algorithms.YESPOWER
+                algo
             )
 
             sharedpref.setButtonModeState(false)
             sharedpref.miningtrue(true)
 
-        } else {
-
+        } else if (sugarMiner != null) { // only stop if miner exists
             binding.button.text = "Start"
             sugarMiner?.stopMining()
             sharedpref.setButtonModeState(true)
+            sharedpref.miningtrue(false)
         }
     }
 
@@ -246,7 +257,12 @@ class MainActivity : AppCompatActivity() {
             binding.editText2.setText(obj.getString("User"))
             binding.editText3.setText(obj.getString("Passwd"))
             binding.threadSpinner.setSelection(obj.getInt("CPU"))
-            binding.spinner.setSelection(obj.getInt("Algorithm"))
+            val algoIndex = obj.getInt("Algorithm")
+            if (algoIndex < binding.spinner.adapter.count) {
+                binding.spinner.setSelection(algoIndex)
+            } else {
+                binding.spinner.setSelection(0) // fallback safely
+            }
 
         } catch (e: IOException) {
             e.printStackTrace()

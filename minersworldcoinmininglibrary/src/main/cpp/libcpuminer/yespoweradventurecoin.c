@@ -98,9 +98,9 @@
 #include "sha256.h"
 #include "sysendian.h"
 
-#include "yespower.h"
+#include "yespoweradventurecoin.h"
 
-#include "yespower-platform.c"
+#include "yespower-platformadvc.c"
 
 #if __STDC_VERSION__ >= 199901L
 /* Have restrict */
@@ -1012,18 +1012,18 @@ static void smix(uint8_t *B, size_t r, uint32_t N,
 #define smix1 smix1_1_0
 #define smix2 smix2_1_0
 #define smix smix_1_0
-#include "yespower.c"
+#include "yespoweradventurecoin.c"
 #undef smix
 
 /**
- * yespower(local, src, srclen, params, dst):
+ * yespower_advc(local, src, srclen, params, dst):
  * Compute yespower(src[0 .. srclen - 1], N, r), to be checked for "< target".
  * local is the thread-local data structure, allowing to preserve and reuse a
  * memory allocation across calls, thereby reducing its overhead.
  *
  * Return 0 on success; or -1 on error.
  */
-int yespower(yespower_local_t *local,
+int yespower_advc(yespower_local_t *local,
     const uint8_t *src, size_t srclen,
     const yespower_params_t *params,
     yespower_binary_t *dst)
@@ -1113,34 +1113,34 @@ int yespower(yespower_local_t *local,
 }
 
 /**
- * yespower_tls(src, srclen, params, dst):
- * Compute yespower(src[0 .. srclen - 1], N, r), to be checked for "< target".
+ * yespower_tls_advc(src, srclen, params, dst):
+ * Compute yespower_advc(src[0 .. srclen - 1], N, r), to be checked for "< target".
  * The memory allocation is maintained internally using thread-local storage.
  *
  * Return 0 on success; or -1 on error.
  */
-int yespower_tls(const uint8_t *src, size_t srclen,
+int yespower_tls_advc(const uint8_t *src, size_t srclen,
     const yespower_params_t *params, yespower_binary_t *dst)
 {
 	static __thread int initialized = 0;
 	static __thread yespower_local_t local;
 
 	if (!initialized) {
-		if (yespower_init_local(&local))
+		if (yespower_init_local_advc(&local))
 			return -1;
 		initialized = 1;
 	}
 
-	return yespower(&local, src, srclen, params, dst);
+	return yespower_advc(&local, src, srclen, params, dst);
 }
 
-int yespower_init_local(yespower_local_t *local)
+int yespower_init_local_advc(yespower_local_t *local)
 {
 	init_region(local);
 	return 0;
 }
 
-int yespower_free_local(yespower_local_t *local)
+int yespower_free_local_advc(yespower_local_t *local)
 {
 	return free_region(local);
 }

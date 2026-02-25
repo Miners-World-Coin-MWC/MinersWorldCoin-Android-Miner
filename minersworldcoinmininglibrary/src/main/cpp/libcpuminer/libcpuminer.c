@@ -105,11 +105,15 @@ struct workio_cmd {
 enum algos {
 	ALGO_POWER2B,
 	ALGO_SHA256D,		/* SHA-256d */
+	ALGO_YESPOWERMWC,
+	ALGO_YESPOWERADVC,
 };
 
 static const char *algo_names[] = {
 	[ALGO_POWER2B]	= "power2b",
 	[ALGO_SHA256D]		= "sha256d",
+	[ALGO_YESPOWERMWC] = "yespowermwc",
+	[ALGO_YESPOWERADVC] = "yespoweradvc",
 };
 
 bool opt_debug = true;
@@ -1097,6 +1101,12 @@ static void *miner_thread(void *userdata)
 			case ALGO_SHA256D:
 				max64 = 0x1fffff;
 				break;
+			case ALGO_YESPOWERMWC:
+				max64 = 0x000fff;
+				break;
+			case ALGO_YESPOWERADVC:
+				max64 = 0x000fff;
+				break;
 			}
 		}
 		if (work.data[19] + max64 > end_nonce)
@@ -1119,9 +1129,21 @@ static void *miner_thread(void *userdata)
 			                      max_nonce, &hashes_done);
 			break;
 
+		case ALGO_YESPOWERMWC:
+			rc = scanhash_yespowermwc(thr_id, work.data, work.target, 
+								  max_nonce, &hashes_done);
+			break;
+
+		case ALGO_YESPOWERADVC:
+			rc = scanhash_yespoweradvc(thr_id, work.data, work.target, 
+								  max_nonce, &hashes_done);
+			break;
+
 		default:
-			/* should never happen */
-			goto out;
+			/* error fallback — defaults to power2b to avoid silent fails */
+			rc = scanhash_power2b(thr_id, work.data, work.target,
+								  max_nonce, &hashes_done);
+			break;
 		}
 
 		/* record scanhash elapsed time */
