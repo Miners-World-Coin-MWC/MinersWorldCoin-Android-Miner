@@ -12,7 +12,7 @@ public class SugarMiner {
     }
 
     public enum Algorithms {
-        YESPOWER,
+        // YESPOWER,
         // YESPOWERSUGAR,
         YESPOWERMWC,
         YESPOWERADVC,
@@ -30,8 +30,8 @@ public class SugarMiner {
     }
     public int beginMiner(String pool, String username, String pwd, int threads, Algorithms algorithm) {
         switch (algorithm) {
-            case YESPOWER:
-                return startMining(pool, username, pwd, threads, 0);
+            // case YESPOWER:
+            //     return startMining(pool, username, pwd, threads, 0);
             case YESPOWERMWC:
                 return startMining(pool, username, pwd, threads, 2);
             case YESPOWERADVC:

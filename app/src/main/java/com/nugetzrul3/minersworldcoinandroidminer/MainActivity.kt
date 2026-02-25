@@ -84,8 +84,8 @@ class MainActivity : AppCompatActivity() {
 
     // --------- ALGORITHM LIST ----------
     val algorithms = arrayOf(
-        "yespower",
-        /*"yespowersugar",*/
+        /*"yespower",
+        "yespowersugar",*/
         "yespowermwc",
         "yespoweradvc",
         /*"yespowerlitb",
@@ -132,7 +132,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun getSelectedAlgorithm(): SugarMiner.Algorithms {
         return when (binding.spinner.selectedItem.toString()) {
-            "yespower" -> SugarMiner.Algorithms.YESPOWER
+            /*"yespower" -> SugarMiner.Algorithms.YESPOWER*/
             "yespowermwc" -> SugarMiner.Algorithms.YESPOWERMWC
             "yespoweradvc" -> SugarMiner.Algorithms.YESPOWERADVC
             else -> SugarMiner.Algorithms.YESPOWERMWC
