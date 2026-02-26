@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:gravity="top"
-    android:background="?attr/backgroundcolor"
-    tools:context=".MainActivity">
+    android:background="?attr/backgroundcolor">
 
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/settingstoolbar"
@@ -20,58 +17,54 @@
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="match_parent">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical" >
+            android:padding="20dp"
+            android:orientation="vertical">
 
-            <TextView
-                android:textColor="?attr/textcolor"
-                android:textSize="100dp"
+            <!-- Manual Difficulty Toggle -->
+            <Switch
+                android:id="@+id/switch_manual_diff"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="TextView" />
+                android:text="Enable Manual Difficulty"
+                android:textColor="?attr/textcolor" />
 
-            <TextView
-                android:textColor="?attr/textcolor"
-                android:textSize="100dp"
+            <!-- Manual Difficulty Input -->
+            <EditText
+                android:id="@+id/edit_manual_diff"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="TextView" />
-
-            <TextView
+                android:hint="Enter Difficulty (example: 0.01)"
+                android:inputType="numberDecimal"
                 android:textColor="?attr/textcolor"
-                android:textSize="100dp"
+                android:textColorHint="?attr/textcolor"
+                android:enabled="false"
+                android:layout_marginTop="10dp"/>
+
+            <!-- Save Button -->
+            <Button
+                android:id="@+id/button_save_settings"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="TextView" />
+                android:text="Save Settings"
+                android:layout_marginTop="20dp"/>
 
-            <TextView
-                android:textColor="?attr/textcolor"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="TextView"
-                android:textSize="100dp" />
-
-            <TextView
-                android:textColor="?attr/textcolor"
-                android:textSize="100dp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="TextView" />
-
+            <!-- Version -->
             <TextView
                 android:id="@+id/version_number"
-                android:textColor="?attr/textcolor"
-                android:textSize="100dp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="TextView" />
+                android:textColor="?attr/textcolor"
+                android:textSize="14sp"
+                android:layout_marginTop="40dp"
+                android:text="Version" />
 
         </LinearLayout>
-    </ScrollView>
 
+    </ScrollView>
 
 </LinearLayout>

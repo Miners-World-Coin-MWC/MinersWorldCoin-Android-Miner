@@ -1,34 +1,56 @@
 package com.nugetzrul3.minersworldcoinandroidminer
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.widget.TextView
+import android.widget.*
+import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 
 class SettingsPage : AppCompatActivity() {
-    protected lateinit var sharedpref: SharedPref
+
+    private lateinit var sharedpref: SharedPref
 
     override fun onCreate(savedInstanceState: Bundle?) {
+
         sharedpref = SharedPref(this)
-        if (sharedpref.loadNightModestate() == true) {
+
+        if (sharedpref.loadNightModestate()) {
             setTheme(R.style.DarkTheme)
+        } else {
+            setTheme(R.style.AppTheme)
         }
-        else setTheme(R.style.AppTheme)
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings_page)
 
-        val settingstoolbar: Toolbar = findViewById(R.id.settingstoolbar)
-        setSupportActionBar(settingstoolbar)
+        val toolbar: Toolbar = findViewById(R.id.settingstoolbar)
+        setSupportActionBar(toolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        getSupportActionBar()?.setDisplayHomeAsUpEnabled(true)
+        val switchManual: Switch = findViewById(R.id.switch_manual_diff)
+        val editDiff: EditText = findViewById(R.id.edit_manual_diff)
+        val saveButton: Button = findViewById(R.id.button_save_settings)
 
-        getvernumber()
+        // Load saved state
+        switchManual.isChecked = sharedpref.getManualDiffEnabled()
+        editDiff.setText(sharedpref.getManualDiffValue())
+        editDiff.isEnabled = switchManual.isChecked
+
+        switchManual.setOnCheckedChangeListener { _, isChecked ->
+            editDiff.isEnabled = isChecked
+        }
+
+        saveButton.setOnClickListener {
+            sharedpref.setManualDiffEnabled(switchManual.isChecked)
+            sharedpref.setManualDiffValue(editDiff.text.toString())
+            Toast.makeText(this, "Settings Saved", Toast.LENGTH_SHORT).show()
+        }
+
+        getVersionNumber()
     }
 
-    fun getvernumber() {
-        val version: String = getPackageManager().getPackageInfo(getPackageName(), 0).versionName
+    private fun getVersionNumber() {
+        val version = packageManager.getPackageInfo(packageName, 0).versionName
         val versionTextView: TextView = findViewById(R.id.version_number)
-        versionTextView.setText("minersworldcoin Android Miner \n" + version)
+        versionTextView.text = "MinersWorldCoin Android Miner\nVersion: $version"
     }
-
 }

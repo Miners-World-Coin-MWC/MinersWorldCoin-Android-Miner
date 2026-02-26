@@ -48,6 +48,10 @@
 
 #ifdef __linux /* Linux specific policy and affinity management */
 #include <sched.h>
+
+static int g_accepted_shares = 0;
+static int g_rejected_shares = 0;
+
 static inline void drop_policy(void)
 {
 	struct sched_param param;
@@ -582,6 +586,7 @@ static void share_result(int result, const char *reason)
 	pthread_mutex_unlock(&stats_lock);
 	
 	sprintf(s, hashrate >= 1e6 ? "%.0f" : "%.2f", 1e-3 * hashrate);
+	applog(LOG_INFO, "SHARE SUBMITTED result=%d", result);
 	applog(LOG_INFO, "accepted: %lu/%lu (%.2f%%), %s khash/s %s",
 		   accepted_count,
 		   accepted_count + rejected_count,
@@ -963,52 +968,72 @@ err_out:
 
 static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 {
-	unsigned char merkle_root[64];
-	int i;
+    unsigned char merkle_root[64];
+    int i;
 
-	pthread_mutex_lock(&sctx->work_lock);
+    pthread_mutex_lock(&sctx->work_lock);
 
-	free(work->job_id);
-	work->job_id = strdup(sctx->job.job_id);
-	work->xnonce2_len = sctx->xnonce2_size;
-	work->xnonce2 = realloc(work->xnonce2, sctx->xnonce2_size);
-	memcpy(work->xnonce2, sctx->job.xnonce2, sctx->xnonce2_size);
+    /* Copy job id */
+    free(work->job_id);
+    work->job_id = strdup(sctx->job.job_id);
 
-	/* Generate merkle root */
-	sha256d(merkle_root, sctx->job.coinbase, sctx->job.coinbase_size);
-	for (i = 0; i < sctx->job.merkle_count; i++) {
-		memcpy(merkle_root + 32, sctx->job.merkle[i], 32);
-		sha256d(merkle_root, merkle_root, 64);
-	}
-	
-	/* Increment extranonce2 */
-	for (i = 0; i < sctx->xnonce2_size && !++sctx->job.xnonce2[i]; i++);
+    /*
+     * IMPORTANT FIX:
+     * Increment extranonce2 FIRST so each generated work unit
+     * uses a fresh extranonce2 value.
+     */
+    for (i = 0; i < sctx->xnonce2_size && !++sctx->job.xnonce2[i]; i++);
 
-	/* Assemble block header */
-	memset(work->data, 0, 128);
-	work->data[0] = le32dec(sctx->job.version);
-	for (i = 0; i < 8; i++)
-		work->data[1 + i] = le32dec((uint32_t *)sctx->job.prevhash + i);
-	for (i = 0; i < 8; i++)
-		work->data[9 + i] = be32dec((uint32_t *)merkle_root + i);
-	work->data[17] = le32dec(sctx->job.ntime);
-	work->data[18] = le32dec(sctx->job.nbits);
-	work->data[20] = 0x80000000;
-	work->data[31] = 0x00000280;
+    /* Copy updated extranonce2 into work */
+    work->xnonce2_len = sctx->xnonce2_size;
 
-	pthread_mutex_unlock(&sctx->work_lock);
+    unsigned char *new_xnonce2 = realloc(work->xnonce2, sctx->xnonce2_size);
+    if (!new_xnonce2) {
+        pthread_mutex_unlock(&sctx->work_lock);
+        return; // realloc failed, abort safely
+    }
 
-	if (opt_debug) {
-		char *xnonce2str = abin2hex(work->xnonce2, work->xnonce2_len);
-		applog(LOG_DEBUG, "DEBUG: job_id='%s' extranonce2=%s ntime=%08x",
-		       work->job_id, xnonce2str, swab32(work->data[17]));
-		free(xnonce2str);
-	}
+    work->xnonce2 = new_xnonce2;
+    memcpy(work->xnonce2, sctx->job.xnonce2, sctx->xnonce2_size);
 
-	if (opt_algo == ALGO_POWER2B)
-		diff_to_target(work->target, sctx->job.diff / 65536.0);
-	else
-		diff_to_target(work->target, sctx->job.diff);
+    /* Generate merkle root */
+    sha256d(merkle_root, sctx->job.coinbase, sctx->job.coinbase_size);
+    for (i = 0; i < sctx->job.merkle_count; i++) {
+        memcpy(merkle_root + 32, sctx->job.merkle[i], 32);
+        sha256d(merkle_root, merkle_root, 64);
+    }
+
+    /* Assemble block header */
+    memset(work->data, 0, 128);
+    work->data[0] = le32dec(sctx->job.version);
+
+    for (i = 0; i < 8; i++)
+        work->data[1 + i] = le32dec((uint32_t *)sctx->job.prevhash + i);
+
+    for (i = 0; i < 8; i++)
+        work->data[9 + i] = be32dec((uint32_t *)merkle_root + i);
+
+    work->data[17] = le32dec(sctx->job.ntime);
+    work->data[18] = le32dec(sctx->job.nbits);
+    work->data[20] = 0x80000000;
+    work->data[31] = 0x00000280;
+
+    pthread_mutex_unlock(&sctx->work_lock);
+
+    if (opt_debug) {
+        char *xnonce2str = abin2hex(work->xnonce2, work->xnonce2_len);
+        applog(LOG_DEBUG,
+               "DEBUG: job_id='%s' extranonce2=%s ntime=%08x",
+               work->job_id,
+               xnonce2str,
+               swab32(work->data[17]));
+        free(xnonce2str);
+    }
+
+    if (opt_algo == ALGO_POWER2B)
+        diff_to_target(work->target, sctx->job.diff / 65536.0);
+    else
+        diff_to_target(work->target, sctx->job.diff);
 }
 
 static void *miner_thread(void *userdata)
@@ -1599,4 +1624,16 @@ int stop() {
 
     applog(LOG_INFO, "all threads stopped");
 	return 0;
+}
+
+#include <jni.h>
+
+JNIEXPORT jint JNICALL
+Java_com_nugetzrul3_minersworldcoinandroidminer_SugarMiner_getAcceptedShares(JNIEnv *env, jobject thiz) {
+    return g_accepted_shares;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_nugetzrul3_minersworldcoinandroidminer_SugarMiner_getRejectedShares(JNIEnv *env, jobject thiz) {
+    return g_rejected_shares;
 }

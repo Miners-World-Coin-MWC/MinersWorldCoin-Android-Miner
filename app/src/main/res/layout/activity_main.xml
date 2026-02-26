@@ -136,6 +136,28 @@
             android:textColor="?attr/textcolor" />
     </LinearLayout>
 
+    <LinearLayout
+    android:orientation="horizontal"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp">
+
+    <TextView
+        android:id="@+id/tvAccepted"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Accepted: 0"
+        android:textColor="?attr/textcolor"
+        android:layout_marginEnd="16dp"/>
+
+    <TextView
+        android:id="@+id/tvRejected"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="?attr/textcolor"
+        android:text="Rejected: 0"/>
+    </LinearLayout>
+
     <TextView
         android:id="@+id/textView6"
         android:layout_width="match_parent"
