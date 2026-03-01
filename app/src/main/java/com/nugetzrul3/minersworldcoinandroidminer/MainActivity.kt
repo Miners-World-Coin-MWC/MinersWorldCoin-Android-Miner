@@ -144,10 +144,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun getSelectedAlgorithm(): SugarMiner.Algorithms {
         return when (binding.spinner.selectedItem.toString()) {
-            /*"yespower" -> SugarMiner.Algorithms.YESPOWER*/
-            "yespowermwc" -> SugarMiner.Algorithms.YESPOWERMWC
-            "yespoweradvc" -> SugarMiner.Algorithms.YESPOWERADVC
-            else -> SugarMiner.Algorithms.YESPOWERMWC
+            /*"yespower" -> SugarMiner.Algorithms.ALGO_SUGAR_YESPOWER_1_0_1*/
+            "YespowerMwc" -> SugarMiner.Algorithms.ALGO_MWC_YESPOWER_1_0_1
+            "YespowerAdvc" -> SugarMiner.Algorithms.ALGO_ADVC_YESPOWER_1_0_1
+            else -> SugarMiner.Algorithms.ALGO_MWC_YESPOWER_1_0_1
         }
     }
 

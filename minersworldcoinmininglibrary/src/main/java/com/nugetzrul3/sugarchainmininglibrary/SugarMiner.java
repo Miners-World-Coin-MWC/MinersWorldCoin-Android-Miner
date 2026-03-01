@@ -12,15 +12,16 @@ public class SugarMiner {
     }
 
     public enum Algorithms {
-        // YESPOWER,
-        // YESPOWERSUGAR,
-        YESPOWERMWC,
-        YESPOWERADVC,
-        // YESPOWERLITB,
-        // YESPOWERIOTS,
-        // YESPOWERMBC,
-        // YESPOWERITC,
-        // YESPOWERISO,
+        // ALGO_SUGAR_YESPOWER_1_0_1,
+        // ALGO_ISO_YESPOWER_1_0_1,
+        // ALGO_URX_YESPOWER_1_0_1,
+        // ALGO_LITB_YESPOWER_1_0_1,
+        // ALGO_IOTS_YESPOWER_1_0_1,
+        // ALGO_ITC_YESPOWER_1_0_1,
+        ALGO_MBC_YESPOWER_1_0_1,
+        // ALGO_YTN_YESPOWER_1_0_1,
+        ALGO_ADVC_YESPOWER_1_0_1,
+        ALGO_MWC_YESPOWER_1_0_1,
     }
 
     private static Handler sHandler;
@@ -30,24 +31,12 @@ public class SugarMiner {
     }
     public int beginMiner(String pool, String username, String pwd, int threads, Algorithms algorithm) {
         switch (algorithm) {
-            // case YESPOWER:
-            //     return startMining(pool, username, pwd, threads, 0);
-            case YESPOWERMWC:
+
+            case ALGO_MWC_YESPOWER_1_0_1:
                 return startMining(pool, username, pwd, threads, 2);
-            case YESPOWERADVC:
-                return startMining(pool, username, pwd, threads, 3);
-            /*case YESPOWERSUGAR:
+            case ALGO_ADVC_YESPOWER_1_0_1:
                 return startMining(pool, username, pwd, threads, 1);
-            case YESPOWERLITB:
-                return startMining(pool, username, pwd, threads, 3);
-            case YESPOWERIOTS:
-                return startMining(pool, username, pwd, threads, 4);
-            case YESPOWERMBC:
-                return startMining(pool, username, pwd, threads, 5);
-            case YESPOWERITC:
-                return startMining(pool, username, pwd, threads, 6);
-            case YESPOWERISO:
-                return startMining(pool, username, pwd, threads, 7);*/
+            
             default:
                 return -1;
         }

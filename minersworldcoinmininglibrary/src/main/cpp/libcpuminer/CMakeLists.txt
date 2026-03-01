@@ -19,12 +19,15 @@ add_library(
     sha2-arm.S
     sha2-x64.S
     sha2-x86-notextrel.S
-    sha256.c
+    crypto/yespower-1.0.1/sha256.c
+    crypto/yespower-1.0.1/yespower-opt.c
+    crypto/yespower-1.0.1-power2b/sha256-p2b.c
+    crypto/yespower-1.0.1-power2b/yespower-opt-p2b.c
+    crypto/yespower-1.0.1-power2b/blake2b.c
     util.c
-    crypto/blake2b.c
-    power2b.c
-    yespowerMWC.c
-    yespowerADVC.c
+    YespowerMbc.c
+    YespowerMwc.c
+    YespowerAdvc.c
     libcpuminer.c
 )
 

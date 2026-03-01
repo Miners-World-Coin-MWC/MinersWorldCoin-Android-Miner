@@ -54,7 +54,7 @@ typedef yespower_region_t yespower_local_t;
 /*
  * Type for yespower algorithm version numbers.
  */
-typedef enum { YESPOWER_0_5 = 5, YESPOWER_1_0 = 10 } yespower_version_t;
+typedef enum { YESPOWER_0_5 = 5, YESPOWER_1_0 = 10, YESPOWER_1_0_BLAKE2B = 11 } yespower_version_t;
 
 /**
  * yespower parameters combined into one struct.
@@ -71,10 +71,10 @@ typedef struct {
  */
 typedef struct {
 	unsigned char uc[32];
-} yespower_binary_t;
+} yespower_binary_t_p2b;
 
 /**
- * yespower_init_local(local):
+ * yespower_init_local_p2b(local):
  * Initialize the thread-local (RAM) data structure.  Actual memory allocation
  * is currently fully postponed until a call to yespower().
  *
@@ -82,10 +82,10 @@ typedef struct {
  *
  * MT-safe as long as local is local to the thread.
  */
-extern int yespower_init_local(yespower_local_t *local);
+extern int yespower_init_local_p2b(yespower_local_t *local);
 
 /**
- * yespower_free_local(local):
+ * yespower_free_local_p2b(local):
  * Free memory that may have been allocated for an initialized thread-local
  * (RAM) data structure.
  *
@@ -93,7 +93,7 @@ extern int yespower_init_local(yespower_local_t *local);
  *
  * MT-safe as long as local is local to the thread.
  */
-extern int yespower_free_local(yespower_local_t *local);
+extern int yespower_free_local_p2b(yespower_local_t *local);
 
 /**
  * yespower(local, src, srclen, params, dst):
@@ -103,16 +103,16 @@ extern int yespower_free_local(yespower_local_t *local);
  *
  * Return 0 on success; or -1 on error.
  *
- * local must be initialized with yespower_init_local().
+ * local must be initialized with yespower_init_local_p2b().
  *
  * MT-safe as long as local and dst are local to the thread.
  */
 extern int yespower(yespower_local_t *local,
     const uint8_t *src, size_t srclen,
-    const yespower_params_t *params, yespower_binary_t *dst);
+    const yespower_params_t *params, yespower_binary_t_p2b *dst);
 
 /**
- * yespower_tls(src, srclen, params, dst):
+ * yespower_tls_p2b(src, srclen, params, dst):
  * Compute yespower(src[0 .. srclen - 1], N, r), to be checked for "< target".
  * The memory allocation is maintained internally using thread-local storage.
  *
@@ -120,8 +120,8 @@ extern int yespower(yespower_local_t *local,
  *
  * MT-safe as long as dst is local to the thread.
  */
-extern int yespower_tls(const uint8_t *src, size_t srclen,
-    const yespower_params_t *params, yespower_binary_t *dst);
+extern int yespower_tls_p2b(const uint8_t *src, size_t srclen,
+    const yespower_params_t *params, yespower_binary_t_p2b *dst);
 
 #ifdef __cplusplus
 }

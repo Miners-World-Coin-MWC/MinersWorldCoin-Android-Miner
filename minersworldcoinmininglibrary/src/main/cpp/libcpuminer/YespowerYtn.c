@@ -35,18 +35,17 @@
 #include <string.h>
 #include <inttypes.h>
 
-int scanhash_mwc_yespower(int thr_id, uint32_t *pdata,
+int scanhash_ytn_yespower(int thr_id, uint32_t *pdata,
 	const uint32_t *ptarget,
 	uint32_t max_nonce, unsigned long *hashes_done)
 {
 	static const yespower_params_t params = {
-		.version = YESPOWER_1_0, 
-		.N = 2048, 
-		.r = 32, 
-		.pers = (const uint8_t *)"Mining made easy and accessible to all - Miners World Coin 2025",
-		.perslen = 63
+		.version = YESPOWER_1_0,
+		.N = 4096,
+		.r = 16,
+		.pers = NULL,
+		.perslen = 0
 	};
-	
 	union {
 		uint8_t u8[8];
 		uint32_t u32[20];
