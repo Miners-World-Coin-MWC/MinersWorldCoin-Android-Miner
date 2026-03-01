@@ -1677,14 +1677,3 @@ int stop() {
 	return 0;
 }
 
-#include <jni.h>
-
-JNIEXPORT jint JNICALL
-Java_com_nugetzrul3_minersworldcoinandroidminer_SugarMiner_getAcceptedShares(JNIEnv *env, jobject thiz) {
-    return g_accepted_shares;
-}
-
-JNIEXPORT jint JNICALL
-Java_com_nugetzrul3_minersworldcoinandroidminer_SugarMiner_getRejectedShares(JNIEnv *env, jobject thiz) {
-    return g_rejected_shares;
-}
