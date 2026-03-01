@@ -7,4 +7,4 @@ TODO:
 - [x] Fix scaling issues with other devices
 - [x] Suggestion: Adding a double back button
 - [x] Fix Logo positioning on smaller and larger devices
-- [ ] Add Sugarmaker miner
+- [x] Add Sugarmaker miner

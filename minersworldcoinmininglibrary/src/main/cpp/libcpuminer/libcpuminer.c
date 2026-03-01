@@ -49,9 +49,6 @@
 #ifdef __linux /* Linux specific policy and affinity management */
 #include <sched.h>
 
-static int g_accepted_shares = 0;
-static int g_rejected_shares = 0;
-
 static inline void drop_policy(void)
 {
 	struct sched_param param;

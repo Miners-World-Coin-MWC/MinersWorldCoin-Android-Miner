@@ -53,9 +53,6 @@ public class SugarMiner {
         }
     }
 
-    public native int getAcceptedCount();
-    public native int getRejectedCount();
-
     public native int stopMining();
     private native int startMining(String url, String user, String password, int n_threads, int algo);
     public native int initMining();
