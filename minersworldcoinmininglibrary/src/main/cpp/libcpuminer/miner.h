@@ -162,17 +162,45 @@ void sha256_transform_8way(uint32_t *state, const uint32_t *block, int swap);
 #endif
 #endif
 
-extern int scanhash_power2b(int thr_id, uint32_t *pdata,
-        const uint32_t *ptarget, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_sugar_yespower(int thr_id, uint32_t *pdata,
+	const uint32_t *ptarget,
+	uint32_t max_nonce, unsigned long *hashes_done);
 
-extern int scanhash_yespowermwc(int thr_id, uint32_t *pdata,
-        const uint32_t *ptarget, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_iso_yespower(int thr_id, uint32_t *pdata,
+	const uint32_t *ptarget,
+	uint32_t max_nonce, unsigned long *hashes_done);
 
-extern int scanhash_yespoweradvc(int thr_id, uint32_t *pdata,
-        const uint32_t *ptarget, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_urx_yespower(int thr_id, uint32_t *pdata,
+	const uint32_t *ptarget,
+	uint32_t max_nonce, unsigned long *hashes_done);
 
-extern int scanhash_sha256d(int thr_id, uint32_t *pdata,
-		const uint32_t *ptarget, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_litb_yespower(int thr_id, uint32_t *pdata,
+	const uint32_t *ptarget,
+	uint32_t max_nonce, unsigned long *hashes_done);
+
+extern int scanhash_iots_yespower(int thr_id, uint32_t *pdata,
+	const uint32_t *ptarget,
+	uint32_t max_nonce, unsigned long *hashes_done);
+
+extern int scanhash_itc_yespower(int thr_id, uint32_t *pdata,
+	const uint32_t *ptarget,
+	uint32_t max_nonce, unsigned long *hashes_done);
+
+extern int scanhash_mbc_yespower(int thr_id, uint32_t *pdata,
+	const uint32_t *ptarget,
+	uint32_t max_nonce, unsigned long *hashes_done);
+
+extern int scanhash_ytn_yespower(int thr_id, uint32_t *pdata,
+	const uint32_t *ptarget,
+	uint32_t max_nonce, unsigned long *hashes_done);
+
+extern int scanhash_advc_yespower(int thr_id, uint32_t *pdata,
+	const uint32_t *ptarget,
+	uint32_t max_nonce, unsigned long *hashes_done);
+
+extern int scanhash_mwc_yespower(int thr_id, uint32_t *pdata,
+	const uint32_t *ptarget,
+	uint32_t max_nonce, unsigned long *hashes_done);
 
 extern unsigned char *scrypt_buffer_alloc(int N);
 extern int scanhash_scrypt(int thr_id, uint32_t *pdata,

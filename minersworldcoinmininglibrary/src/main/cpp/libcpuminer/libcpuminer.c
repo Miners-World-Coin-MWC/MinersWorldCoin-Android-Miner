@@ -49,9 +49,6 @@
 #ifdef __linux /* Linux specific policy and affinity management */
 #include <sched.h>
 
-static int g_accepted_shares = 0;
-static int g_rejected_shares = 0;
-
 static inline void drop_policy(void)
 {
 	struct sched_param param;
@@ -91,8 +88,20 @@ static inline void affine_to_cpu(int id, int cpu)
     CPU_SET(cpu, &set);
     cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1, sizeof(cpuset_t), &set);
 }
+
+#else
+
+static inline void drop_policy(void)
+
+{
+}
+
+static inline void affine_to_cpu(int id, int cpu)
+
+{
+}
 #endif
-		
+
 enum workio_commands {
 	WC_GET_WORK,
 	WC_SUBMIT_WORK,
@@ -107,20 +116,32 @@ struct workio_cmd {
 };
 
 enum algos {
-	ALGO_POWER2B,
-	ALGO_SHA256D,		/* SHA-256d */
-	ALGO_YESPOWERMWC,
-	ALGO_YESPOWERADVC,
+	// ALGO_SUGAR_YESPOWER_1_0_1,
+	// ALGO_ISO_YESPOWER_1_0_1,
+	// ALGO_URX_YESPOWER_1_0_1,
+	// ALGO_LITB_YESPOWER_1_0_1,
+	// ALGO_IOTS_YESPOWER_1_0_1,
+	// ALGO_ITC_YESPOWER_1_0_1,
+	ALGO_MBC_YESPOWER_1_0_1,
+	// ALGO_YTN_YESPOWER_1_0_1,
+	ALGO_ADVC_YESPOWER_1_0_1,
+	ALGO_MWC_YESPOWER_1_0_1,
 };
 
 static const char *algo_names[] = {
-	[ALGO_POWER2B]	= "power2b",
-	[ALGO_SHA256D]		= "sha256d",
-	[ALGO_YESPOWERMWC] = "yespowermwc",
-	[ALGO_YESPOWERADVC] = "yespoweradvc",
+	// [ALGO_SUGAR_YESPOWER_1_0_1]	= "YespowerSugar",
+	// [ALGO_ISO_YESPOWER_1_0_1]	= "YespowerIso",
+	// [ALGO_URX_YESPOWER_1_0_1]	= "YespowerUrx",
+	// [ALGO_LITB_YESPOWER_1_0_1]	= "YespowerLitb",
+	// [ALGO_IOTS_YESPOWER_1_0_1]	= "YespowerIots",
+	// [ALGO_ITC_YESPOWER_1_0_1]	= "YespowerItc",
+	[ALGO_MBC_YESPOWER_1_0_1]	= "YespowerMbc",
+	// [ALGO_YTN_YESPOWER_1_0_1]	= "YespowerYtn",
+	[ALGO_ADVC_YESPOWER_1_0_1]	= "YespowerAdvc",
+	[ALGO_MWC_YESPOWER_1_0_1]	= "YespowerMwc",
 };
 
-bool opt_debug = true;
+bool opt_debug = false;
 bool opt_protocol = false;
 static bool opt_benchmark = false;
 bool opt_redirect = true;
@@ -131,20 +152,20 @@ bool allow_getwork = true;
 bool want_stratum = true;
 bool have_stratum = false;
 bool use_syslog = false;
+static bool opt_background = false;
 static bool opt_quiet = false;
 static int opt_retries = -1;
 static int opt_fail_pause = 30;
 int opt_timeout = 0;
 static int opt_scantime = 5;
-static enum algos opt_algo = ALGO_POWER2B;
-static int opt_scrypt_n = 1024;
+static enum algos opt_algo = ALGO_MWC_YESPOWER_1_0_1;
 static int opt_n_threads;
 static int num_processors;
 static char *rpc_url;
 static char *rpc_userpass;
 static char *rpc_user, *rpc_pass;
 static int pk_script_size;
-static unsigned char pk_script[25];
+static unsigned char pk_script[42];
 static char coinbase_sig[101] = "";
 char *opt_cert;
 char *opt_proxy;
@@ -584,10 +605,10 @@ static void share_result(int result, const char *reason)
 		hashrate += thr_hashrates[i];
 	result ? accepted_count++ : rejected_count++;
 	pthread_mutex_unlock(&stats_lock);
-	
-	sprintf(s, hashrate >= 1e6 ? "%.0f" : "%.2f", 1e-3 * hashrate);
+
+	sprintf(s, hashrate >= 1e3 ? "%.0f" : "%.1f", hashrate);
 	applog(LOG_INFO, "SHARE SUBMITTED result=%d", result);
-	applog(LOG_INFO, "accepted: %lu/%lu (%.2f%%), %s khash/s %s",
+	applog(LOG_INFO, "accepted: %lu/%lu (%.2f%%), %s hash/s %s",
 		   accepted_count,
 		   accepted_count + rejected_count,
 		   100. * accepted_count / (accepted_count + rejected_count),
@@ -614,13 +635,14 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 	}
 
 	if (have_stratum) {
-		uint32_t ntime, nonce;
+		unsigned char ntime[4], nonce[4];
 		char ntimestr[9], noncestr[9], *xnonce2str, *req;
 
-		le32enc(&ntime, work->data[17]);
-		le32enc(&nonce, work->data[19]);
-		bin2hex(ntimestr, (const unsigned char *)(&ntime), 4);
-		bin2hex(noncestr, (const unsigned char *)(&nonce), 4);
+
+		le32enc(ntime, work->data[17]);
+		le32enc(nonce, work->data[19]);
+		bin2hex(ntimestr, ntime, 4);
+		bin2hex(noncestr, nonce, 4);
 		xnonce2str = abin2hex(work->xnonce2, work->xnonce2_len);
 		req = malloc(256 + strlen(rpc_user) + strlen(work->job_id) + 2 * work->xnonce2_len);
 		sprintf(req,
@@ -863,7 +885,7 @@ static void *workio_thread(void *userdata)
 		return NULL;
 	}
 
-	while (ok && mythr->run) {
+	while (ok) {
 		struct workio_cmd *wc;
 
 		/* wait for workio_cmd sent to us, on our queue */
@@ -892,7 +914,6 @@ static void *workio_thread(void *userdata)
 
 	tq_freeze(mythr->q);
 	curl_easy_cleanup(curl);
-	mythr->run = 0;
 
 	return NULL;
 }
@@ -941,7 +962,7 @@ static bool get_work(struct thr_info *thr, struct work *work)
 static bool submit_work(struct thr_info *thr, const struct work *work_in)
 {
 	struct workio_cmd *wc;
-	
+
 	/* fill out work request message */
 	wc = calloc(1, sizeof(*wc));
 	if (!wc)
@@ -968,72 +989,49 @@ err_out:
 
 static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 {
-    unsigned char merkle_root[64];
-    int i;
+	unsigned char merkle_root[64];
+	int i;
 
-    pthread_mutex_lock(&sctx->work_lock);
+	pthread_mutex_lock(&sctx->work_lock);
 
-    /* Copy job id */
-    free(work->job_id);
-    work->job_id = strdup(sctx->job.job_id);
+	free(work->job_id);
+	work->job_id = strdup(sctx->job.job_id);
+	work->xnonce2_len = sctx->xnonce2_size;
+	work->xnonce2 = realloc(work->xnonce2, sctx->xnonce2_size);
+	memcpy(work->xnonce2, sctx->job.xnonce2, sctx->xnonce2_size);
 
-    /*
-     * IMPORTANT FIX:
-     * Increment extranonce2 FIRST so each generated work unit
-     * uses a fresh extranonce2 value.
-     */
-    for (i = 0; i < sctx->xnonce2_size && !++sctx->job.xnonce2[i]; i++);
+	/* Generate merkle root */
+	sha256d(merkle_root, sctx->job.coinbase, sctx->job.coinbase_size);
+	for (i = 0; i < sctx->job.merkle_count; i++) {
+		memcpy(merkle_root + 32, sctx->job.merkle[i], 32);
+		sha256d(merkle_root, merkle_root, 64);
+	}
 
-    /* Copy updated extranonce2 into work */
-    work->xnonce2_len = sctx->xnonce2_size;
+	/* Increment extranonce2 */
+	for (i = 0; i < sctx->xnonce2_size && !++sctx->job.xnonce2[i]; i++);
 
-    unsigned char *new_xnonce2 = realloc(work->xnonce2, sctx->xnonce2_size);
-    if (!new_xnonce2) {
-        pthread_mutex_unlock(&sctx->work_lock);
-        return; // realloc failed, abort safely
-    }
+	/* Assemble block header */
+	memset(work->data, 0, 128);
+	work->data[0] = le32dec(sctx->job.version);
+	for (i = 0; i < 8; i++)
+		work->data[1 + i] = le32dec((uint32_t *)sctx->job.prevhash + i);
+	for (i = 0; i < 8; i++)
+		work->data[9 + i] = be32dec((uint32_t *)merkle_root + i);
+	work->data[17] = le32dec(sctx->job.ntime);
+	work->data[18] = le32dec(sctx->job.nbits);
+	work->data[20] = 0x80000000;
+	work->data[31] = 0x00000280;
 
-    work->xnonce2 = new_xnonce2;
-    memcpy(work->xnonce2, sctx->job.xnonce2, sctx->xnonce2_size);
+	pthread_mutex_unlock(&sctx->work_lock);
 
-    /* Generate merkle root */
-    sha256d(merkle_root, sctx->job.coinbase, sctx->job.coinbase_size);
-    for (i = 0; i < sctx->job.merkle_count; i++) {
-        memcpy(merkle_root + 32, sctx->job.merkle[i], 32);
-        sha256d(merkle_root, merkle_root, 64);
-    }
+	if (opt_debug) {
+		char *xnonce2str = abin2hex(work->xnonce2, work->xnonce2_len);
+		applog(LOG_DEBUG, "DEBUG: job_id='%s' extranonce2=%s ntime=%08x",
+		       work->job_id, xnonce2str, swab32(work->data[17]));
+		free(xnonce2str);
+	}
 
-    /* Assemble block header */
-    memset(work->data, 0, 128);
-    work->data[0] = le32dec(sctx->job.version);
-
-    for (i = 0; i < 8; i++)
-        work->data[1 + i] = le32dec((uint32_t *)sctx->job.prevhash + i);
-
-    for (i = 0; i < 8; i++)
-        work->data[9 + i] = be32dec((uint32_t *)merkle_root + i);
-
-    work->data[17] = le32dec(sctx->job.ntime);
-    work->data[18] = le32dec(sctx->job.nbits);
-    work->data[20] = 0x80000000;
-    work->data[31] = 0x00000280;
-
-    pthread_mutex_unlock(&sctx->work_lock);
-
-    if (opt_debug) {
-        char *xnonce2str = abin2hex(work->xnonce2, work->xnonce2_len);
-        applog(LOG_DEBUG,
-               "DEBUG: job_id='%s' extranonce2=%s ntime=%08x",
-               work->job_id,
-               xnonce2str,
-               swab32(work->data[17]));
-        free(xnonce2str);
-    }
-
-    if (opt_algo == ALGO_POWER2B)
-        diff_to_target(work->target, sctx->job.diff / 65536.0);
-    else
-        diff_to_target(work->target, sctx->job.diff);
+	diff_to_target(work->target, sctx->job.diff / 65536.0);
 }
 
 static void *miner_thread(void *userdata)
@@ -1042,6 +1040,7 @@ static void *miner_thread(void *userdata)
 	int thr_id = mythr->id;
 	struct work work = {{0}};
 	uint32_t max_nonce;
+	uint32_t start_nonce = 0xffffffffU / opt_n_threads * thr_id;
 	uint32_t end_nonce = 0xffffffffU / opt_n_threads * (thr_id + 1) - 0x20;
 	unsigned char *scratchbuf = NULL;
 	char s[16];
@@ -1062,14 +1061,15 @@ static void *miner_thread(void *userdata)
 #ifndef __KITKAT__
 #ifndef __APPLE__
 	if (num_processors > 1 && opt_n_threads % num_processors == 0) {
-		applog(LOG_INFO, "Binding thread %d to cpu %d",
-		       thr_id, thr_id % num_processors);
+		if (!opt_quiet)
+			applog(LOG_INFO, "Binding thread %d to cpu %d",
+			       thr_id, thr_id % num_processors);
 		affine_to_cpu(thr_id, thr_id % num_processors);
 	}
 #endif // __APPLE__
 #endif // __KITKAT__
 
-	while (mythr->run) {
+	while (1) {
 		unsigned long hashes_done;
 		struct timeval tv_start, tv_end, diff;
 		int64_t max64;
@@ -1105,12 +1105,12 @@ static void *miner_thread(void *userdata)
 		if (memcmp(work.data, g_work.data, 76)) {
 			work_free(&work);
 			work_copy(&work, &g_work);
-			work.data[19] = 0xffffffffU / opt_n_threads * thr_id;
+			work.data[19] = start_nonce;
 		} else
 			work.data[19]++;
 		pthread_mutex_unlock(&g_work_lock);
 		work_restart[thr_id].restart = 0;
-		
+
 		/* adjust max_nonce to meet target scan time */
 		if (have_stratum)
 			max64 = LP_SCANTIME;
@@ -1120,17 +1120,35 @@ static void *miner_thread(void *userdata)
 		max64 *= thr_hashrates[thr_id];
 		if (max64 <= 0) {
 			switch (opt_algo) {
-			case ALGO_POWER2B:
-				max64 = 0x000fff;
+			// case ALGO_SUGAR_YESPOWER_1_0_1:
+			// 	max64 = 499;
+			// 	break;
+			// case ALGO_ISO_YESPOWER_1_0_1:
+			// 	max64 = 499;
+			// 	break;
+			// case ALGO_URX_YESPOWER_1_0_1:
+			// 	max64 = 499;
+			// 	break;
+			// case ALGO_LITB_YESPOWER_1_0_1:
+			// 	max64 = 499;
+			// 	break;
+			// case ALGO_IOTS_YESPOWER_1_0_1:
+			// 	max64 = 499;
+			// 	break;
+			// case ALGO_ITC_YESPOWER_1_0_1:
+			// 	max64 = 499;
+			// 	break;
+			case ALGO_MBC_YESPOWER_1_0_1:
+				max64 = 499;
 				break;
-			case ALGO_SHA256D:
-				max64 = 0x1fffff;
+			// case ALGO_YTN_YESPOWER_1_0_1:
+			// 	max64 = 499;
+			// 	break;
+			case ALGO_ADVC_YESPOWER_1_0_1:
+				max64 = 499;
 				break;
-			case ALGO_YESPOWERMWC:
-				max64 = 0x000fff;
-				break;
-			case ALGO_YESPOWERADVC:
-				max64 = 0x000fff;
+			case ALGO_MWC_YESPOWER_1_0_1:
+				max64 = 499;
 				break;
 			}
 		}
@@ -1138,37 +1156,74 @@ static void *miner_thread(void *userdata)
 			max_nonce = end_nonce;
 		else
 			max_nonce = work.data[19] + max64;
-		
+
 		hashes_done = 0;
 		gettimeofday(&tv_start, NULL);
 
 		/* scan nonces for a proof-of-work hash */
 		switch (opt_algo) {
-		case ALGO_POWER2B:
-			rc = scanhash_power2b(thr_id, work.data, work.target,
-					       max_nonce, &hashes_done);
+		// case ALGO_SUGAR_YESPOWER_1_0_1:
+		// 	rc = scanhash_sugar_yespower(
+		// 		thr_id, work.data, work.target, max_nonce, &hashes_done
+		// 	);
+		// 	break;
+
+		// case ALGO_ISO_YESPOWER_1_0_1:
+		// 	rc = scanhash_iso_yespower(
+		// 		thr_id, work.data, work.target, max_nonce, &hashes_done
+		// 	);
+		// 	break;
+
+		// case ALGO_URX_YESPOWER_1_0_1:
+		// 	rc = scanhash_urx_yespower(
+		// 		thr_id, work.data, work.target, max_nonce, &hashes_done
+		// 	);
+		// 	break;
+
+		// case ALGO_LITB_YESPOWER_1_0_1:
+		// 	rc = scanhash_litb_yespower(
+		// 		thr_id, work.data, work.target, max_nonce, &hashes_done
+		// 	);
+		// 	break;
+
+		// case ALGO_IOTS_YESPOWER_1_0_1:
+		// 	rc = scanhash_iots_yespower(
+		// 		thr_id, work.data, work.target, max_nonce, &hashes_done
+		// 	);
+		// 	break;
+
+		// case ALGO_ITC_YESPOWER_1_0_1:
+		// 	rc = scanhash_itc_yespower(
+		// 		thr_id, work.data, work.target, max_nonce, &hashes_done
+		// 	);
+		// 	break;
+
+		case ALGO_MBC_YESPOWER_1_0_1:
+			rc = scanhash_mbc_yespower(
+				thr_id, work.data, work.target, max_nonce, &hashes_done
+			);
 			break;
 
-		case ALGO_SHA256D:
-			rc = scanhash_sha256d(thr_id, work.data, work.target,
-			                      max_nonce, &hashes_done);
+		// case ALGO_YTN_YESPOWER_1_0_1:
+		// 	rc = scanhash_ytn_yespower(
+		// 		thr_id, work.data, work.target, max_nonce, &hashes_done
+		// 	);
+		// 	break;
+		
+		case ALGO_ADVC_YESPOWER_1_0_1:
+			rc = scanhash_advc_yespower(
+				thr_id, work.data, work.target, max_nonce, &hashes_done
+			);
 			break;
-
-		case ALGO_YESPOWERMWC:
-			rc = scanhash_yespowermwc(thr_id, work.data, work.target, 
-								  max_nonce, &hashes_done);
-			break;
-
-		case ALGO_YESPOWERADVC:
-			rc = scanhash_yespoweradvc(thr_id, work.data, work.target, 
-								  max_nonce, &hashes_done);
-			break;
+		case ALGO_MWC_YESPOWER_1_0_1:
+			rc = scanhash_mwc_yespower(
+				thr_id, work.data, work.target, max_nonce, &hashes_done
+			);
+			break;	
 
 		default:
-			/* error fallback — defaults to power2b to avoid silent fails */
-			rc = scanhash_power2b(thr_id, work.data, work.target,
-								  max_nonce, &hashes_done);
-			break;
+			/* should never happen */
+			goto out;
 		}
 
 		/* record scanhash elapsed time */
@@ -1181,18 +1236,20 @@ static void *miner_thread(void *userdata)
 			pthread_mutex_unlock(&stats_lock);
 		}
 		if (!opt_quiet) {
-			sprintf(s, thr_hashrates[thr_id] >= 1e6 ? "%.0f" : "%.2f",
-					1e-3 * thr_hashrates[thr_id]);
-			applog(LOG_INFO, "thread %d: %lu hashes, %s khash/s",
-				   thr_id, hashes_done, s);
+			sprintf(s, thr_hashrates[thr_id] >= 1e3 ? "%.0f" : "%.1f",
+				thr_hashrates[thr_id]);
+			applog(LOG_INFO, "thread %d: %lu hashes, %s hash/s",
+				thr_id, hashes_done, s);
 		}
 		if (opt_benchmark && thr_id == opt_n_threads - 1) {
 			double hashrate = 0.;
+			pthread_mutex_lock(&stats_lock);
 			for (i = 0; i < opt_n_threads && thr_hashrates[i]; i++)
 				hashrate += thr_hashrates[i];
+			pthread_mutex_unlock(&stats_lock);
 			if (i == opt_n_threads) {
-				sprintf(s, hashrate >= 1e6 ? "%.0f" : "%.2f", 1e-3 * hashrate);
-				applog(LOG_INFO, "Total: %s khash/s", s);
+				sprintf(s, hashrate >= 1e3 ? "%.0f" : "%.1f", hashrate);
+				applog(LOG_INFO, "Total: %s hash/s", s);
 			}
 		}
 
@@ -1203,7 +1260,6 @@ static void *miner_thread(void *userdata)
 
 out:
 	tq_freeze(mythr->q);
-	mythr->run = 0;
 
 	return NULL;
 }
@@ -1239,7 +1295,7 @@ start:
 		lp_url = hdr_path;
 		hdr_path = NULL;
 	}
-	
+
 	/* absolute path, on current server */
 	else {
 		copy_start = (*hdr_path == '/') ? (hdr_path + 1) : hdr_path;
@@ -1255,7 +1311,7 @@ start:
 
 	applog(LOG_INFO, "Long-polling activated for %s", lp_url);
 
-	while (mythr->run) {
+	while (1) {
 		json_t *val, *res, *soval;
 		char *req = NULL;
 		int err;
@@ -1315,7 +1371,6 @@ out:
 	tq_freeze(mythr->q);
 	if (curl)
 		curl_easy_cleanup(curl);
-	mythr->run = 0;
 
 	return NULL;
 }
@@ -1360,7 +1415,7 @@ static void *stratum_thread(void *userdata)
 		goto out;
 	applog(LOG_INFO, "Starting Stratum on %s", stratum.url);
 
-	while (mythr->run) {
+	while (1) {
 		int failures = 0;
 
 		while (!stratum.curl) {
@@ -1390,11 +1445,11 @@ static void *stratum_thread(void *userdata)
 			time(&g_work_time);
 			pthread_mutex_unlock(&g_work_lock);
 			if (stratum.job.clean) {
-				applog(LOG_INFO, "Stratum requested work restart");
+				// applog(LOG_INFO, "Stratum requested work restart");
 				restart_threads();
 			}
 		}
-		
+
 		if (!stratum_socket_full(&stratum, 120)) {
 			applog(LOG_ERR, "Stratum connection timed out");
 			s = NULL;
@@ -1411,7 +1466,7 @@ static void *stratum_thread(void *userdata)
 	}
 
 out:
-	mythr->run = 0;
+
 	return NULL;
 }
 
@@ -1523,7 +1578,6 @@ int start(const char *url, const char *user, const char *pass, const int n_threa
 	thr = &thr_info[work_thr_id];
 	thr->id = work_thr_id;
 	thr->q = tq_new();
-	thr->run = 1;
 	if (!thr->q)
 		return 1;
 
@@ -1539,7 +1593,6 @@ int start(const char *url, const char *user, const char *pass, const int n_threa
 		thr = &thr_info[longpoll_thr_id];
 		thr->id = longpoll_thr_id;
 		thr->q = tq_new();
-		thr->run = 1;
 		if (!thr->q)
 			return 1;
 
@@ -1555,7 +1608,6 @@ int start(const char *url, const char *user, const char *pass, const int n_threa
 		thr = &thr_info[stratum_thr_id];
 		thr->id = stratum_thr_id;
 		thr->q = tq_new();
-		thr->run = 1;
 		if (!thr->q)
 			return 1;
 
@@ -1575,7 +1627,6 @@ int start(const char *url, const char *user, const char *pass, const int n_threa
 
 		thr->id = i;
 		thr->q = tq_new();
-		thr->run = 1;
 		if (!thr->q)
 			return 1;
 

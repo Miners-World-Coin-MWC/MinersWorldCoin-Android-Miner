@@ -1,98 +1,85 @@
-/*-
- * Copyright 2014 Alexander Peslyak
+/*
+ * Copyright 2011 ArtForz, 2011-2014 pooler, 2018 The Resistance developers, 2020 The Sugarchain Yumekawa developers
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted.
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ * This file is loosly based on a tiny portion of pooler's cpuminer scrypt.c.
  */
 
-#include "yespoweradventurecoin.h"
-#include "yespoweradventurecoin.c"
+#include "cpuminer-config.h"
+#include "miner.h"
 
-#include <stdbool.h>
-#include <stdint.h>
+#include "crypto/yespower-1.0.1/yespower.h"
+
+#include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
-
-struct work_restart {
-    volatile unsigned long restart;
-    char padding[128 - sizeof(unsigned long)];
-};
-
-extern struct work_restart *work_restart;
-extern bool fulltest(const uint32_t *hash, const uint32_t *target);
-
-/* quick pretest before full 256-bit comparison */
-static int pretest(const uint32_t *hash, const uint32_t *target)
+int scanhash_advc_yespower(int thr_id, uint32_t *pdata,
+	const uint32_t *ptarget,
+	uint32_t max_nonce, unsigned long *hashes_done)
 {
-    return hash[7] < target[7];
-}
+	static const yespower_params_t params = {
+		.version = YESPOWER_1_0, 
+		.N = 2048, 
+		.r = 32, 
+		.pers = (const uint8_t *)"Let the quest begin",
+		.perslen = 19
+	};
+	
+	union {
+		uint8_t u8[8];
+		uint32_t u32[20];
+	} data;
+	union {
+		yespower_binary_t yb;
+		uint32_t u32[7];
+	} hash;
+	uint32_t n = pdata[19] - 1;
+	const uint32_t Htarg = ptarget[7];
+	int i;
 
-/* =========================================================
-   ADVC YESPOWER 1.0 v2 HASH FUNCTION
-   MUST MATCH BLOCKCHAIN CONSENSUS PARAMS EXACTLY
-   ========================================================= */
+	for (i = 0; i < 19; i++)
+		be32enc(&data.u32[i], pdata[i]);
 
-void yespoweradvc_hash(const char *input, char *output, uint32_t len)
-{
-    static yespower_params_t params = {
-        .version = YESPOWER_1_0,
-        .N = 2048,
-        .r = 32,
-        .pers = (const uint8_t *)
-            "Let the quest begin",
-        .perslen = 19
-    };
+	do {
+		be32enc(&data.u32[19], ++n);
 
-    yespower_tls_advc(
-        (const yespower_binary_t *)input,
-        len,
-        &params,
-        (yespower_binary_t *)output
-    );
-}
+		if (yespower_tls(data.u8, 80, &params, &hash.yb))
+			abort();
 
-/* =========================================================
-   SCANHASH FUNCTION FOR ADVC
-   ========================================================= */
+		if (le32dec(&hash.u32[7]) <= Htarg) {
+			for (i = 0; i < 7; i++)
+				hash.u32[i] = le32dec(&hash.u32[i]);
+			if (fulltest(hash.u32, ptarget)) {
+				*hashes_done = n - pdata[19] + 1;
+				pdata[19] = n;
+				return 1;
+			}
+		}
+	} while (n < max_nonce && !work_restart[thr_id].restart);
 
-int scanhash_yespoweradvc(int thr_id,
-                         uint32_t *pdata,
-                         const uint32_t *ptarget,
-                         uint32_t max_nonce,
-                         unsigned long *hashes_done)
-{
-    uint32_t data[20] __attribute__((aligned(128)));
-    uint32_t hash[8]  __attribute__((aligned(32)));
-
-    uint32_t n = pdata[19] - 1;
-    const uint32_t first_nonce = pdata[19];
-
-    /* Convert block header to big-endian */
-    for (int i = 0; i < 20; i++) {
-        be32enc(&data[i], pdata[i]);
-    }
-
-    do {
-        be32enc(&data[19], ++n);
-
-        yespoweradvc_hash((char *)data, (char *)hash, 80);
-
-        if (pretest(hash, ptarget) && fulltest(hash, ptarget)) {
-            pdata[19] = n;
-            *hashes_done = n - first_nonce + 1;
-            return 1;
-        }
-
-    } while (n < max_nonce && !work_restart[thr_id].restart);
-
-    *hashes_done = n - first_nonce + 1;
-    pdata[19] = n;
-
-    return 0;
+	*hashes_done = n - pdata[19] + 1;
+	pdata[19] = n;
+	return 0;
 }

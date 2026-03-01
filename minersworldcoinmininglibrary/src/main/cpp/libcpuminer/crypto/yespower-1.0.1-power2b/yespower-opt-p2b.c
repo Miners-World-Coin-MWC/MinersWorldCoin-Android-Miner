@@ -1,6 +1,6 @@
 /*-
  * Copyright 2009 Colin Percival
- * Copyright 2012-2018 Alexander Peslyak
+ * Copyright 2012-2019 Alexander Peslyak
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -94,13 +94,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "utils/insecure_memzero.h"
-#include "sha256.h"
-#include "sysendian.h"
+#include "blake2b.h"
 
-#include "yespoweradventurecoin.h"
+#include "insecure_memzero-p2b.h"
+#include "sha256-p2b.h"
+#include "sysendian-p2b.h"
 
-#include "yespower-platformadvc.c"
+#include "yespower-p2b.h"
+
+#include "yespower-platform-p2b.c"
 
 #if __STDC_VERSION__ >= 199901L
 /* Have restrict */
@@ -405,7 +407,7 @@ static inline uint32_t blockmix_salsa_xor(const salsa20_blk_t *restrict Bin1,
 }
 
 #if _YESPOWER_OPT_C_PASS_ == 1
-/* This is tunable, but it is part of what defines a yespower version */
+/* This is tunable, but it is part of what defines a yespower_p2b version */
 /* Version 0.5 */
 #define Swidth_0_5 8
 /* Version 1.0 */
@@ -419,7 +421,7 @@ static inline uint32_t blockmix_salsa_xor(const salsa20_blk_t *restrict Bin1,
 #define PWXbytes (PWXgather * PWXsimple * 8)
 
 /* (Maybe-)runtime derived values.  Not tunable on their own. */
-#define Swidth_to_Sbytes1(Swidth) ((1 << (Swidth)) * PWXsimple * 8)
+#define Swidth_to_Sbytes1_P2b(Swidth) ((1 << (Swidth)) * PWXsimple * 8)
 #define Swidth_to_Smask(Swidth) (((1 << (Swidth)) - 1) * PWXsimple * 8)
 #define Smask_to_Smask2(Smask) (((uint64_t)(Smask) << 32) | (Smask))
 
@@ -531,6 +533,11 @@ static volatile uint64_t Smask2var = Smask2;
 #undef MAYBE_MEMORY_BARRIER
 #define MAYBE_MEMORY_BARRIER \
 	__asm__("" : : : "memory");
+#ifdef __ILP32__ /* x32 */
+#define REGISTER_PREFIX "e"
+#else
+#define REGISTER_PREFIX "r"
+#endif
 #define PWXFORM_SIMD(X) { \
 	__m128i H; \
 	__asm__( \
@@ -540,8 +547,8 @@ static volatile uint64_t Smask2var = Smask2;
 	    "pmuludq %1, %0\n\t" \
 	    "movl %%eax, %%ecx\n\t" \
 	    "shrq $0x20, %%rax\n\t" \
-	    "paddq (%3,%%rcx), %0\n\t" \
-	    "pxor (%4,%%rax), %0\n\t" \
+	    "paddq (%3,%%" REGISTER_PREFIX "cx), %0\n\t" \
+	    "pxor (%4,%%" REGISTER_PREFIX "ax), %0\n\t" \
 	    : "+x" (X), "=x" (H) \
 	    : "d" (Smask2), "S" (S0), "D" (S1) \
 	    : "cc", "ax", "cx"); \
@@ -949,12 +956,10 @@ static void smix2(uint8_t *B, size_t r, uint32_t N, uint32_t Nloop,
 		} while (Nloop -= 2);
 #if _YESPOWER_OPT_C_PASS_ == 1
 	} else {
-		do {
-			const salsa20_blk_t * V_j = &V[j * s];
-			j = blockmix_xor(X, V_j, Y, r, ctx) & (N - 1);
-			V_j = &V[j * s];
-			j = blockmix_xor(Y, V_j, X, r, ctx) & (N - 1);
-		} while (Nloop -= 2);
+		const salsa20_blk_t * V_j = &V[j * s];
+		j = blockmix_xor(X, V_j, Y, r, ctx) & (N - 1);
+		V_j = &V[j * s];
+		blockmix_xor(Y, V_j, X, r, ctx);
 	}
 #endif
 
@@ -1011,22 +1016,22 @@ static void smix(uint8_t *B, size_t r, uint32_t N,
 #define blockmix_xor_save blockmix_xor_save_1_0
 #define smix1 smix1_1_0
 #define smix2 smix2_1_0
-#define smix smix_1_0
-#include "yespoweradventurecoin.c"
+#define smix smix_1_0_p2b
+#include "yespower-opt-p2b.c"
 #undef smix
 
 /**
- * yespower_advc(local, src, srclen, params, dst):
- * Compute yespower(src[0 .. srclen - 1], N, r), to be checked for "< target".
+ * yespower_p2b(local, src, srclen, params, dst):
+ * Compute yespower_p2b(src[0 .. srclen - 1], N, r), to be checked for "< target".
  * local is the thread-local data structure, allowing to preserve and reuse a
  * memory allocation across calls, thereby reducing its overhead.
  *
  * Return 0 on success; or -1 on error.
  */
-int yespower_advc(yespower_local_t *local,
+int yespower_p2b(yespower_local_t *local,
     const uint8_t *src, size_t srclen,
     const yespower_params_t *params,
-    yespower_binary_t *dst)
+    yespower_binary_t_p2b *dst)
 {
 	yespower_version_t version = params->version;
 	uint32_t N = params->N;
@@ -1039,14 +1044,15 @@ int yespower_advc(yespower_local_t *local,
 	salsa20_blk_t *V, *XY;
 	pwxform_ctx_t ctx;
 	uint8_t sha256[32];
+	uint8_t blake2b[32];
 
 	/* Sanity-check parameters */
-	if ((version != YESPOWER_0_5 && version != YESPOWER_1_0) ||
+	if ((version != YESPOWER_0_5 && version != YESPOWER_1_0 && version != YESPOWER_1_0_BLAKE2B) ||
 	    N < 1024 || N > 512 * 1024 || r < 8 || r > 32 ||
 	    (N & (N - 1)) != 0 ||
 	    (!pers && perslen)) {
 		errno = EINVAL;
-		return -1;
+		goto fail;
 	}
 
 	/* Allocate memory */
@@ -1055,43 +1061,49 @@ int yespower_advc(yespower_local_t *local,
 	if (version == YESPOWER_0_5) {
 		XY_size = B_size * 2;
 		Swidth = Swidth_0_5;
-		ctx.Sbytes = 2 * Swidth_to_Sbytes1(Swidth);
-	} else {
+		ctx.Sbytes = 2 * Swidth_to_Sbytes1_P2b(Swidth);
+	} else if (version == YESPOWER_1_0) {
 		XY_size = B_size + 64;
 		Swidth = Swidth_1_0;
-		ctx.Sbytes = 3 * Swidth_to_Sbytes1(Swidth);
+		ctx.Sbytes = 3 * Swidth_to_Sbytes1_P2b(Swidth);
+	} else if (version == YESPOWER_1_0_BLAKE2B) {
+		XY_size = B_size + 64;
+		Swidth = Swidth_1_0;
+		ctx.Sbytes = 3 * Swidth_to_Sbytes1_P2b(Swidth);
 	}
 	need = B_size + V_size + XY_size + ctx.Sbytes;
 	if (local->aligned_size < need) {
 		if (free_region(local))
-			return -1;
+			goto fail;
 		if (!alloc_region(local, need))
-			return -1;
+			goto fail;
 	}
 	B = (uint8_t *)local->aligned;
 	V = (salsa20_blk_t *)((uint8_t *)B + B_size);
 	XY = (salsa20_blk_t *)((uint8_t *)V + V_size);
 	S = (uint8_t *)XY + XY_size;
 	ctx.S0 = S;
-	ctx.S1 = S + Swidth_to_Sbytes1(Swidth);
+	ctx.S1 = S + Swidth_to_Sbytes1_P2b(Swidth);
 
-	SHA256_Buf(src, srclen, sha256);
+	// SHA256_Buf(src, srclen, sha256); // Move to each loop
 
 	if (version == YESPOWER_0_5) {
-		PBKDF2_SHA256(sha256, sizeof(sha256), src, srclen, 1,
+		SHA256_Buf(src, srclen, sha256);
+		PBKDF2_SHA256_P2B(sha256, sizeof(sha256), src, srclen, 1,
 		    B, B_size);
 		memcpy(sha256, B, sizeof(sha256));
 		smix(B, r, N, V, XY, &ctx);
-		PBKDF2_SHA256(sha256, sizeof(sha256), B, B_size, 1,
+		PBKDF2_SHA256_P2B(sha256, sizeof(sha256), B, B_size, 1,
 		    (uint8_t *)dst, sizeof(*dst));
 
 		if (pers) {
-			HMAC_SHA256_Buf(dst, sizeof(*dst), pers, perslen,
+			HMAC_SHA256_Buf_P2b(dst, sizeof(*dst), pers, perslen,
 			    sha256);
 			SHA256_Buf(sha256, sizeof(sha256), (uint8_t *)dst);
 		}
-	} else {
-		ctx.S2 = S + 2 * Swidth_to_Sbytes1(Swidth);
+	} else if (version == YESPOWER_1_0) {
+		SHA256_Buf(src, srclen, sha256);
+		ctx.S2 = S + 2 * Swidth_to_Sbytes1_P2b(Swidth);
 		ctx.w = 0;
 
 		if (pers) {
@@ -1101,46 +1113,65 @@ int yespower_advc(yespower_local_t *local,
 			srclen = 0;
 		}
 
-		PBKDF2_SHA256(sha256, sizeof(sha256), src, srclen, 1, B, 128);
+		PBKDF2_SHA256_P2B(sha256, sizeof(sha256), src, srclen, 1, B, 128);
 		memcpy(sha256, B, sizeof(sha256));
-		smix_1_0(B, r, N, V, XY, &ctx);
-		HMAC_SHA256_Buf(B + B_size - 64, 64,
+		smix_1_0_p2b(B, r, N, V, XY, &ctx);
+		HMAC_SHA256_Buf_P2b(B + B_size - 64, 64,
 		    sha256, sizeof(sha256), (uint8_t *)dst);
+	} else if (version == YESPOWER_1_0_BLAKE2B) {
+		blake2b_hash(blake2b, src, srclen);
+		ctx.S2 = S + 2 * Swidth_to_Sbytes1_P2b(Swidth);
+		ctx.w = 0;
+
+		if (pers) {
+			src = pers;
+			srclen = perslen;
+		} else {
+			srclen = 0;
+		}
+
+		pbkdf2_blake2b(blake2b, sizeof(blake2b), src, srclen, 1, B, 128);
+		memcpy(blake2b, B, sizeof(blake2b));
+		smix_1_0_p2b(B, r, N, V, XY, &ctx);
+		hmac_blake2b_hash((uint8_t *)dst, B + B_size - 64, 64, blake2b, sizeof(blake2b));
 	}
 
 	/* Success! */
 	return 0;
+
+fail:
+	memset(dst, 0xff, sizeof(*dst));
+	return -1;
 }
 
 /**
- * yespower_tls_advc(src, srclen, params, dst):
- * Compute yespower_advc(src[0 .. srclen - 1], N, r), to be checked for "< target".
+ * yespower_tls_p2b(src, srclen, params, dst):
+ * Compute yespower_p2b(src[0 .. srclen - 1], N, r), to be checked for "< target".
  * The memory allocation is maintained internally using thread-local storage.
  *
  * Return 0 on success; or -1 on error.
  */
-int yespower_tls_advc(const uint8_t *src, size_t srclen,
-    const yespower_params_t *params, yespower_binary_t *dst)
+int yespower_tls_p2b(const uint8_t *src, size_t srclen,
+    const yespower_params_t *params, yespower_binary_t_p2b *dst)
 {
 	static __thread int initialized = 0;
 	static __thread yespower_local_t local;
 
 	if (!initialized) {
-		if (yespower_init_local_advc(&local))
-			return -1;
+		init_region(&local);
 		initialized = 1;
 	}
 
-	return yespower_advc(&local, src, srclen, params, dst);
+	return yespower_p2b(&local, src, srclen, params, dst);
 }
 
-int yespower_init_local_advc(yespower_local_t *local)
+int yespower_init_local_p2b(yespower_local_t *local)
 {
 	init_region(local);
 	return 0;
 }
 
-int yespower_free_local_advc(yespower_local_t *local)
+int yespower_free_local_p2b(yespower_local_t *local)
 {
 	return free_region(local);
 }

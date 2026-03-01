@@ -31,16 +31,6 @@ class MainActivity : AppCompatActivity() {
     private val logs: BlockingQueue<String?> = LinkedBlockingQueue(LOG_LINES)
 
     private val shareUpdateHandler = Handler(Looper.getMainLooper())
-
-    private val shareUpdateRunnable = object : Runnable {
-        override fun run() {
-            val accepted = sugarMiner?.getAcceptedCount() ?: 0
-            val rejected = sugarMiner?.getRejectedCount() ?: 0
-            binding.tvAccepted.text = "Accepted: $accepted"
-            binding.tvRejected.text = "Rejected: $rejected"
-            shareUpdateHandler.postDelayed(this, 1000)
-        }
-    }
     
     private class JNIHandler(activity: MainActivity) :
         Handler(Looper.getMainLooper()) {
@@ -144,10 +134,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun getSelectedAlgorithm(): SugarMiner.Algorithms {
         return when (binding.spinner.selectedItem.toString()) {
-            /*"yespower" -> SugarMiner.Algorithms.YESPOWER*/
-            "yespowermwc" -> SugarMiner.Algorithms.YESPOWERMWC
-            "yespoweradvc" -> SugarMiner.Algorithms.YESPOWERADVC
-            else -> SugarMiner.Algorithms.YESPOWERMWC
+            /*"yespower" -> SugarMiner.Algorithms.ALGO_SUGAR_YESPOWER_1_0_1*/
+            "YespowerMwc" -> SugarMiner.Algorithms.ALGO_MWC_YESPOWER_1_0_1
+            "YespowerAdvc" -> SugarMiner.Algorithms.ALGO_ADVC_YESPOWER_1_0_1
+            else -> SugarMiner.Algorithms.ALGO_MWC_YESPOWER_1_0_1
         }
     }
 
