@@ -88,8 +88,8 @@ class MainActivity : AppCompatActivity() {
     val algorithms = arrayOf(
         /*"yespower",
         "yespowersugar",*/
-        "yespowermwc",
-        "yespoweradvc",
+        "YespowerMwc",
+        "YespowerAdvc",
         /*"yespowerlitb",
         "yespoweriots",
         "yespowermbc",
