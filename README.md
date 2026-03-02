@@ -1,6 +1,7 @@
 # ⛏️ MinersWorldCoin Android Miner
 
-![Total Downloads](https://img.shields.io/github/downloads/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/total) | ![Downloads for 1.9.0](./downloads.svg?raw=true)
+* Total downloads ![Total Downloads](https://img.shields.io/github/downloads/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/total) 
+* 1.9.0 Downloads ![Downloads for 1.9.0](./downloads.svg?raw=true)
 
 A lightweight, high-performance Android CPU miner built for:
 
