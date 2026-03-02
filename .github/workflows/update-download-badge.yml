@@ -29,7 +29,7 @@ jobs:
           COLOR="rgba(0,0,0,0.6)"  # semi-transparent overlay for text readability
 
           # Encode your image to base64 for embedding
-          IMG_BASE64=$(base64 -w 0 /mnt/data/cf3cba15-27b4-4baa-83d1-769d875e2ded.png)
+          IMG_BASE64=$(base64 -w 0 image_2026-03-02_180732523.png)
 
           # Generate the SVG
           echo "<svg xmlns='http://www.w3.org/2000/svg' width='400' height='80'>
