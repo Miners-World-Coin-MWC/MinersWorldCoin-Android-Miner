@@ -20,38 +20,36 @@ jobs:
         run: |
           count=$(curl -s "https://api.github.com/repos/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/releases/tags/1.9.0" \
             | jq '.assets[] | select(.name=="androidMinerMWC.apk") | .download_count')
-          # Default to 0 if empty
-          if [ -z "$count" ] || [ "$count" = "null" ]; then
-            count=0
-          fi
           echo "DOWNLOADS=$count" >> $GITHUB_OUTPUT
 
-      - name: Download badge image
-        run: |
-          curl -L -o badge.png https://raw.githubusercontent.com/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/master/image_2026-03-02_180732523.png
-          if [ ! -f badge.png ]; then
-            echo "ERROR: Failed to download badge image"
-            exit 1
-          fi
-
-      - name: Create custom SVG badge with speech bubble
+      - name: Create Shields-style badge
         run: |
           LABEL="APK"
           VALUE="${{ steps.get.outputs.DOWNLOADS }}"
-          COLOR="rgba(0,0,0,0.6)"
+          COLOR="blue"
 
-          IMG_BASE64=$(base64 -w 0 badge.png)
+          # Simple SVG for Shields-style badge
+          WIDTH_LABEL=$(( 6 * ${#LABEL} + 10 ))
+          WIDTH_VALUE=$(( 6 * ${#VALUE} + 10 ))
+          WIDTH_TOTAL=$((WIDTH_LABEL + WIDTH_VALUE))
 
-          # SVG with speech bubble coming from big Android's mouth
-          echo "<svg xmlns='http://www.w3.org/2000/svg' width='400' height='100'>
-            <image href='data:image/png;base64,$IMG_BASE64' width='400' height='100'/>
-            <!-- Speech bubble -->
-            <polygon points='220,20 300,20 300,50 230,50' fill='$COLOR'/>
-            <polygon points='230,50 210,50 220,40' fill='$COLOR'/>
-            <text x='260' y='40' font-family='Verdana,Geneva,DejaVu Sans,sans-serif' font-size='14' fill='#fff' text-anchor='middle'>
-              $LABEL Downloads: $VALUE
-            </text>
-          </svg>" > downloads.svg
+          cat <<EOF > downloads.svg
+          <svg xmlns="http://www.w3.org/2000/svg" width="$WIDTH_TOTAL" height="20">
+            <linearGradient id="smooth" x2="0" y2="100%">
+              <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
+              <stop offset=".1" stop-color="#aaa" stop-opacity=".1"/>
+              <stop offset=".9" stop-color="#000" stop-opacity=".3"/>
+              <stop offset="1" stop-color="#000" stop-opacity=".5"/>
+            </linearGradient>
+            <rect rx="3" width="$WIDTH_LABEL" height="20" fill="#555"/>
+            <rect rx="3" x="$WIDTH_LABEL" width="$WIDTH_VALUE" height="20" fill="$COLOR"/>
+            <rect rx="3" width="$WIDTH_TOTAL" height="20" fill="url(#smooth)"/>
+            <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
+              <text x="$((WIDTH_LABEL/2))" y="14">$LABEL</text>
+              <text x="$((WIDTH_LABEL + WIDTH_VALUE/2))" y="14">$VALUE</text>
+            </g>
+          </svg>
+          EOF
 
       - name: Commit badge
         run: |
