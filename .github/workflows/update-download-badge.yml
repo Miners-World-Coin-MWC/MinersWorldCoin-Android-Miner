@@ -1,0 +1,28 @@
+name: Update Download Badge
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # every hour
+  workflow_dispatch:
+
+jobs:
+  update-badge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Get download count
+        id: get
+        run: |
+          count=$(curl -s "https://api.github.com/repos/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/releases/tags/1.9.0" \
+            | jq '.assets[] | select(.name=="androidMinerMWC.apk") | .download_count')
+          echo "DOWNLOADS=$count" >> $GITHUB_OUTPUT
+      - name: Create badge
+        run: |
+          echo "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='20'><text x='0' y='15'>downloads: ${{ steps.get.outputs.DOWNLOADS }}</text></svg>" > downloads.svg
+      - name: Commit badge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add downloads.svg
+          git commit -m "Update download badge" || echo "No changes"
+          git push
