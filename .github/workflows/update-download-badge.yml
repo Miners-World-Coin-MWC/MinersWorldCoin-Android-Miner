@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # 👈 THIS IS THE FIX
+  contents: write
 
 jobs:
   update-badge:
@@ -22,9 +22,23 @@ jobs:
             | jq '.assets[] | select(.name=="androidMinerMWC.apk") | .download_count')
           echo "DOWNLOADS=$count" >> $GITHUB_OUTPUT
 
-      - name: Create badge
+      - name: Create custom SVG badge with image
         run: |
-          echo "<svg xmlns='http://www.w3.org/2000/svg' width='160' height='20'><text x='0' y='15'>APK downloads: ${{ steps.get.outputs.DOWNLOADS }}</text></svg>" > downloads.svg
+          LABEL="APK"
+          VALUE="${{ steps.get.outputs.DOWNLOADS }}"
+          COLOR="rgba(0,0,0,0.6)"  # semi-transparent overlay for text readability
+
+          # Encode your image to base64 for embedding
+          IMG_BASE64=$(base64 -w 0 /mnt/data/cf3cba15-27b4-4baa-83d1-769d875e2ded.png)
+
+          # Generate the SVG
+          echo "<svg xmlns='http://www.w3.org/2000/svg' width='400' height='80'>
+            <image href='data:image/png;base64,$IMG_BASE64' width='400' height='80'/>
+            <rect x='0' y='50' width='400' height='30' fill='$COLOR'/>
+            <text x='200' y='70' font-family='Verdana,Geneva,DejaVu Sans,sans-serif' font-size='16' fill='#fff' text-anchor='middle'>
+              $LABEL Downloads: $VALUE
+            </text>
+          </svg>" > downloads.svg
 
       - name: Commit badge
         run: |
