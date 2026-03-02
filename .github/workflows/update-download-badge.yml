@@ -20,22 +20,35 @@ jobs:
         run: |
           count=$(curl -s "https://api.github.com/repos/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/releases/tags/1.9.0" \
             | jq '.assets[] | select(.name=="androidMinerMWC.apk") | .download_count')
+          # Default to 0 if empty
+          if [ -z "$count" ] || [ "$count" = "null" ]; then
+            count=0
+          fi
           echo "DOWNLOADS=$count" >> $GITHUB_OUTPUT
 
-      - name: Create custom SVG badge with image
+      - name: Download badge image
+        run: |
+          curl -L -o badge.png https://raw.githubusercontent.com/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/master/image_2026-03-02_180732523.png
+          if [ ! -f badge.png ]; then
+            echo "ERROR: Failed to download badge image"
+            exit 1
+          fi
+
+      - name: Create custom SVG badge with speech bubble
         run: |
           LABEL="APK"
           VALUE="${{ steps.get.outputs.DOWNLOADS }}"
-          COLOR="rgba(0,0,0,0.6)"  # semi-transparent overlay for text readability
+          COLOR="rgba(0,0,0,0.6)"
 
-          # Encode your image to base64 for embedding
-          IMG_BASE64=$(base64 -w 0 image_2026-03-02_180732523.png)
+          IMG_BASE64=$(base64 -w 0 badge.png)
 
-          # Generate the SVG
-          echo "<svg xmlns='http://www.w3.org/2000/svg' width='400' height='80'>
-            <image href='data:image/png;base64,$IMG_BASE64' width='400' height='80'/>
-            <rect x='0' y='50' width='400' height='30' fill='$COLOR'/>
-            <text x='200' y='70' font-family='Verdana,Geneva,DejaVu Sans,sans-serif' font-size='16' fill='#fff' text-anchor='middle'>
+          # SVG with speech bubble coming from big Android's mouth
+          echo "<svg xmlns='http://www.w3.org/2000/svg' width='400' height='100'>
+            <image href='data:image/png;base64,$IMG_BASE64' width='400' height='100'/>
+            <!-- Speech bubble -->
+            <polygon points='220,20 300,20 300,50 230,50' fill='$COLOR'/>
+            <polygon points='230,50 210,50 220,40' fill='$COLOR'/>
+            <text x='260' y='40' font-family='Verdana,Geneva,DejaVu Sans,sans-serif' font-size='14' fill='#fff' text-anchor='middle'>
               $LABEL Downloads: $VALUE
             </text>
           </svg>" > downloads.svg
