@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="44" height="20">
+<svg xmlns="http://www.w3.org/2000/svg" width="50" height="20">
   <linearGradient id="smooth" x2="0" y2="100%">
     <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
     <stop offset=".1" stop-color="#aaa" stop-opacity=".1"/>
@@ -6,10 +6,10 @@
     <stop offset="1" stop-color="#000" stop-opacity=".5"/>
   </linearGradient>
   <rect rx="3" width="28" height="20" fill="#555"/>
-  <rect rx="3" x="28" width="16" height="20" fill="blue"/>
-  <rect rx="3" width="44" height="20" fill="url(#smooth)"/>
+  <rect rx="3" x="28" width="22" height="20" fill="blue"/>
+  <rect rx="3" width="50" height="20" fill="url(#smooth)"/>
   <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
     <text x="14" y="14">APK</text>
-    <text x="36" y="14">8</text>
+    <text x="39" y="14">10</text>
   </g>
 </svg>
