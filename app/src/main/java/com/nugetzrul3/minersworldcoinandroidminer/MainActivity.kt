@@ -141,10 +141,51 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun isValidMWCAddress(address: String): Boolean {
+
+        val wallet = address.split(".")[0]
+
+        val base58Regex = Regex("^[59][1-9A-HJ-NP-Za-km-z]{24,33}$")
+        val bech32Regex = Regex("^mwc1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{6,87}$")
+
+        return base58Regex.matches(wallet) || bech32Regex.matches(wallet)
+    }
+
+    private fun isValidADVCAddress(address: String): Boolean {
+
+        val wallet = address.split(".")[0]
+
+        val base58Regex = Regex("^[A5][1-9A-HJ-NP-Za-km-z]{24,33}$")
+        val bech32Regex = Regex("^advc1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{6,87}$")
+
+        return base58Regex.matches(wallet) || bech32Regex.matches(wallet)
+    }
+
     private fun toggleMining() {
         if (binding.button.text == "Start") {
-            if (binding.editText.text.isNullOrEmpty()) {
-                binding.textView6.text = "Error, no pool url specified"
+
+            val pool = binding.editText.text.toString().trim()
+            val wallet = binding.editText2.text.toString().trim()
+            val password = binding.editText3.text.toString()
+
+            // Validate pool URL
+            if (pool.isEmpty()) {
+                binding.textView6.text = "Error: No pool URL specified"
+                sharedpref.miningtrue(false)
+                return
+            }
+
+            val algo = getSelectedAlgorithm()
+
+            // Validate wallet depending on algorithm
+            val validWallet = when (algo) {
+                SugarMiner.Algorithms.ALGO_MWC_YESPOWER_1_0_1 -> isValidMWCAddress(wallet)
+                SugarMiner.Algorithms.ALGO_ADVC_YESPOWER_1_0_1 -> isValidADVCAddress(wallet)
+                else -> false
+            }
+
+            if (!validWallet) {
+                binding.textView6.text = "Error: Invalid wallet address for selected algorithm"
                 sharedpref.miningtrue(false)
                 return
             }
@@ -152,13 +193,12 @@ class MainActivity : AppCompatActivity() {
             binding.button.text = "Stop"
 
             val threads = binding.threadSpinner.selectedItem.toString().toInt()
-            val algo = getSelectedAlgorithm() // <- use selected algorithm
 
             sugarMiner?.initMining()
             sugarMiner?.beginMiner(
-                binding.editText.text.toString(),
-                binding.editText2.text.toString(),
-                binding.editText3.text.toString(),
+                pool,
+                wallet,
+                password,
                 threads,
                 algo
             )
@@ -166,9 +206,11 @@ class MainActivity : AppCompatActivity() {
             sharedpref.setButtonModeState(false)
             sharedpref.miningtrue(true)
 
-        } else if (sugarMiner != null) { // only stop if miner exists
+        } else if (sugarMiner != null) {
+
             binding.button.text = "Start"
             sugarMiner?.stopMining()
+
             sharedpref.setButtonModeState(true)
             sharedpref.miningtrue(false)
         }
@@ -236,9 +278,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun saveConfig() {
         val json = JSONObject().apply {
-            put("URL", binding.editText.text)
-            put("User", binding.editText2.text)
-            put("Passwd", binding.editText3.text)
+            put("URL", binding.editText.text.toString())
+            put("User", binding.editText2.text.toString())
+            put("Passwd", binding.editText3.text.toString())
             put("CPU", binding.threadSpinner.selectedItemPosition)
             put("Algorithm", binding.spinner.selectedItemPosition)
         }
