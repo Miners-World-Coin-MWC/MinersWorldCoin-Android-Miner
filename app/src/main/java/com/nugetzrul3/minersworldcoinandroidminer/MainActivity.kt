@@ -12,6 +12,8 @@ import android.view.MenuItem
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import android.content.pm.PackageManager
+import android.app.NotificationManager
+import androidx.core.app.NotificationCompat
 import androidx.appcompat.widget.Toolbar
 import com.nugetzrul3.minersworldcoinandroidminer.databinding.ActivityMainBinding
 import com.nugetzrul3.minersworldcoinmininglibrary.SugarMiner
@@ -42,6 +44,26 @@ class MainActivity : AppCompatActivity() {
             activityRef.get()?.let { activity ->
                 val log = msg.data.getString("log")
                 activity.updateLogs(log)
+
+                log?.let {
+                    // Detect accepted / rejected shares
+                    if (it.contains("(yay!!!)")) {
+                        activity.incrementAccepted()
+                    }
+
+                    if (it.contains("(booooo)")) {
+                        activity.incrementRejected()
+                    }
+
+                    // Extract hashrate from miner output
+                    val regex = Regex("""accepted:\s+\d+/\d+\s+\([\d.]+%\),\s+([\d.]+)\s+hash/s""")
+
+                    val match = regex.find(it)
+                    if (match != null) {
+                        val hash = match.groupValues[1]
+                        activity.updateHashrate("$hash H/s")
+                    }
+                }
             }
         }
     }
@@ -327,6 +349,42 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var acceptedShares = 0
+    private var rejectedShares = 0
+    private var currentHashrate = "0 H/s"
+
+    fun incrementAccepted() {
+        acceptedShares++
+        updateNotification()
+    }
+
+    fun incrementRejected() {
+        rejectedShares++
+        updateNotification()
+    }
+
+    fun updateHashrate(hash: String) {
+        currentHashrate = hash
+        updateNotification()
+    }
+
+    private fun updateNotification() {
+        val notificationText = "Hashrate: $currentHashrate | Shares: $acceptedShares/$rejectedShares"
+
+        val builder = NotificationCompat.Builder(this, MiningService.CHANNEL_ID)
+            .setContentTitle("⛏ MinersWorldCoin Mining")
+            .setContentText(notificationText)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setOngoing(true)
+
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(MiningService.NOTIFICATION_ID, builder.build())
+    }
+    
+    private fun updateHashrateUI() {
+        binding.textView6.append("\nHashrate: $currentHashrate | Shares: $acceptedShares/$rejectedShares")
+    }
+
     private fun startMiningService() {
 
         val serviceIntent = Intent(this, MiningService::class.java)
@@ -337,6 +395,8 @@ class MainActivity : AppCompatActivity() {
             startService(serviceIntent)
         }
     }
+
+    
 
     private fun restartApp() {
         startActivity(Intent(this, MainActivity::class.java))

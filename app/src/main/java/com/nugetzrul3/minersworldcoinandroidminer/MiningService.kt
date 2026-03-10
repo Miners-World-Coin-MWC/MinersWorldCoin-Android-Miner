@@ -8,7 +8,10 @@ import androidx.core.app.NotificationCompat
 
 class MiningService : Service() {
 
-    private val CHANNEL_ID = "MWC_MINER_CHANNEL"
+    companion object {
+        const val CHANNEL_ID = "mining_service_channel"
+        const val NOTIFICATION_ID = 101
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -40,15 +43,13 @@ class MiningService : Service() {
     private fun createNotificationChannel() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-
-            val serviceChannel = NotificationChannel(
+            val channel = NotificationChannel(
                 CHANNEL_ID,
-                "MWC Miner Service",
+                "Mining Service",
                 NotificationManager.IMPORTANCE_LOW
             )
-
             val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(serviceChannel)
+            manager.createNotificationChannel(channel)
         }
     }
 }
