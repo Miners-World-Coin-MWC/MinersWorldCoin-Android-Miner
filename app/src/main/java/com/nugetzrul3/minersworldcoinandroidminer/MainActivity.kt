@@ -11,6 +11,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.widget.ArrayAdapter
 import android.widget.Toast
+import android.content.pm.PackageManager
 import androidx.appcompat.widget.Toolbar
 import com.nugetzrul3.minersworldcoinandroidminer.databinding.ActivityMainBinding
 import com.nugetzrul3.minersworldcoinmininglibrary.SugarMiner
@@ -66,6 +67,18 @@ class MainActivity : AppCompatActivity() {
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Request notification permission for Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+
+                requestPermissions(
+                    arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                    1001
+                )
+            }
+        }
 
         val handler = JNIHandler(this)
         sugarMiner = SugarMiner(handler)
@@ -189,6 +202,7 @@ class MainActivity : AppCompatActivity() {
                 sharedpref.miningtrue(false)
                 return
             }
+            startMiningService()
 
             binding.button.text = "Stop"
 
@@ -310,6 +324,17 @@ class MainActivity : AppCompatActivity() {
 
         } catch (e: IOException) {
             e.printStackTrace()
+        }
+    }
+
+    private fun startMiningService() {
+
+        val serviceIntent = Intent(this, MiningService::class.java)
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
         }
     }
 
