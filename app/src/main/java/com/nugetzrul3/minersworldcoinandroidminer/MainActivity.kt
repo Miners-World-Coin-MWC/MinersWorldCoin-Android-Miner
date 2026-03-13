@@ -15,6 +15,9 @@ import android.content.pm.PackageManager
 import android.app.NotificationManager
 import androidx.core.app.NotificationCompat
 import androidx.appcompat.widget.Toolbar
+import android.provider.Settings
+import android.os.PowerManager
+import android.content.Context
 import com.nugetzrul3.minersworldcoinandroidminer.databinding.ActivityMainBinding
 import com.nugetzrul3.minersworldcoinmininglibrary.SugarMiner
 import org.json.JSONObject
@@ -196,6 +199,24 @@ class MainActivity : AppCompatActivity() {
         return base58Regex.matches(wallet) || bech32Regex.matches(wallet)
     }
 
+    private fun requestDisableBatteryOptimization() {
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val packageName = packageName
+
+        if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+
+            Toast.makeText(
+                this,
+                "Please disable battery optimization for stable mining",
+                Toast.LENGTH_LONG
+            ).show()
+
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            intent.data = Uri.parse("package:$packageName")
+            startActivity(intent)
+        }
+    }
+
     private fun toggleMining() {
         if (binding.button.text == "Start") {
 
@@ -224,12 +245,24 @@ class MainActivity : AppCompatActivity() {
                 sharedpref.miningtrue(false)
                 return
             }
-            startMiningService()
 
-            binding.button.text = "Stop"
+            requestDisableBatteryOptimization()
 
             val threads = binding.threadSpinner.selectedItem.toString().toInt()
 
+            // Reset mining stats for new session
+            acceptedShares = 0
+            rejectedShares = 0
+            currentHashrate = "0 H/s"
+
+            if (sharedpref.loadButtonModestate() == false) {
+                sugarMiner?.stopMining()
+            }
+
+            // Create fresh miner instance
+            sugarMiner = SugarMiner(JNIHandler(this))
+
+            // Start miner
             sugarMiner?.initMining()
             sugarMiner?.beginMiner(
                 pool,
@@ -239,13 +272,25 @@ class MainActivity : AppCompatActivity() {
                 algo
             )
 
+            // Then start foreground service
+            startMiningService()
+
+            binding.button.text = "Stop"
+
             sharedpref.setButtonModeState(false)
             sharedpref.miningtrue(true)
 
-        } else if (sugarMiner != null) {
+        } else {
 
             binding.button.text = "Start"
+
+            // Stop miner safely
             sugarMiner?.stopMining()
+            Thread.sleep(300)   // allow native threads to exit
+            sugarMiner = null
+
+            // Stop foreground service
+            stopMiningService()
 
             sharedpref.setButtonModeState(true)
             sharedpref.miningtrue(false)
@@ -388,15 +433,21 @@ class MainActivity : AppCompatActivity() {
     private fun startMiningService() {
 
         val serviceIntent = Intent(this, MiningService::class.java)
+        serviceIntent.action = "START_MINING"
 
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
         } else {
             startService(serviceIntent)
         }
     }
 
-    
+    private fun stopMiningService() {
+
+        val intent = Intent(this, MiningService::class.java)
+        intent.action = "STOP_MINING"
+        startService(intent)
+    }
 
     private fun restartApp() {
         startActivity(Intent(this, MainActivity::class.java))
