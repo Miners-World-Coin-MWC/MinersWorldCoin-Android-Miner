@@ -3,17 +3,17 @@
 * Total downloads ![Total Downloads](https://img.shields.io/github/downloads/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/total) 
 * 1.9.0 Downloads ![Downloads for 1.9.0](./downloads.svg?raw=true)
 
-Note: Antivirus engines may detect this application as a "crypto miner".
-This is expected behavior because the application intentionally performs
-cryptocurrency mining when the user enables it.
-
-Mining only starts when the user presses the "Start Mining" button.
-The application does not perform any hidden background mining.
-
-Mining uses CPU resources and may:
-• drain battery
-• increase device temperature
-• reduce device lifespan
+> Note: Antivirus engines may detect this application as a "crypto miner".
+> This is expected behavior because the application intentionally performs
+> cryptocurrency mining when the user enables it.
+> 
+> Mining only starts when the user presses the "Start Mining" button.
+> The application does not perform any hidden background mining.
+> 
+> Mining uses CPU resources and may:
+> *• drain battery
+> *• increase device temperature
+> *• reduce device lifespan
 
 A lightweight, high-performance Android CPU miner built for:
 
