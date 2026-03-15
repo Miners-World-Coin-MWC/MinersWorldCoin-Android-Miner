@@ -11,9 +11,9 @@
 > The application does not perform any hidden background mining.
 
 Mining uses CPU resources and may:
-*• drain battery
-*• increase device temperature
-*• reduce device lifespan
+* • drain battery
+* • increase device temperature
+* • reduce device lifespan
 
 A lightweight, high-performance Android CPU miner built for:
 
