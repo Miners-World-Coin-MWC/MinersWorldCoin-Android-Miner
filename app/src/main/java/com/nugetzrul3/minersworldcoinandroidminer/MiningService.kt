@@ -18,6 +18,7 @@ class MiningService : Service() {
         var currentHashrate = "0 H/s"
 
         var logListener: ((String) -> Unit)? = null
+        var logBuffer: MutableList<String> = mutableListOf()
     }
 
     private var sugarMiner: SugarMiner? = null
@@ -46,6 +47,12 @@ class MiningService : Service() {
             val service = serviceRef.get() ?: return
             val log = msg.data.getString("log") ?: return
 
+            logBuffer.add(log)
+
+            if (logBuffer.size > 500){
+                logBuffer.removeAt(0)
+            }
+            
             logListener?.invoke(log)
 
             if (log.contains("(yay!!!)")) {

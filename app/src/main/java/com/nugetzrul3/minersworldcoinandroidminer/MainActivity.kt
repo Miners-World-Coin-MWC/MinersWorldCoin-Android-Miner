@@ -88,7 +88,6 @@ class MainActivity : AppCompatActivity() {
         }, 1200)
 
         // Receive logs from service
-        MiningService.logListener = null
 
         MiningService.logListener = { log ->
             if (!isFinishing && !isDestroyed) {
@@ -96,6 +95,10 @@ class MainActivity : AppCompatActivity() {
                     updateLogs(log)
                 }
             }
+        }
+
+        for (log in MiningService.logBuffer) {
+            updateLogs(log)
         }
 
         // Request notification permission (Android 13+)

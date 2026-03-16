@@ -1,7 +1,7 @@
 # ⛏️ MinersWorldCoin Android Miner
 
 * Total downloads ![Total Downloads](https://img.shields.io/github/downloads/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/total) 
-* 1.9.3 Downloads ![Downloads for 1.9.3](./193.svg?raw=true)
+* 1.9.4 Downloads ![Downloads for 1.9.4](./194.svg?raw=true)
 
 > Note: Antivirus engines may detect this application as a "crypto miner".
 > This is expected behavior because the application intentionally performs

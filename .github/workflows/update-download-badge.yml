@@ -18,7 +18,7 @@ jobs:
       - name: Get download count
         id: get
         run: |
-          count=$(curl -s "https://api.github.com/repos/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/releases/tags/1.9.3" \
+          count=$(curl -s "https://api.github.com/repos/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/releases/tags/1.9.4" \
             | jq '.assets[] | select(.name=="androidMinerMWC.apk") | .download_count')
           echo "DOWNLOADS=$count" >> $GITHUB_OUTPUT
 
@@ -33,7 +33,7 @@ jobs:
           WIDTH_VALUE=$(( 6 * ${#VALUE} + 10 ))
           WIDTH_TOTAL=$((WIDTH_LABEL + WIDTH_VALUE))
 
-          cat <<EOF > 193.svg
+          cat <<EOF > 194.svg
           <svg xmlns="http://www.w3.org/2000/svg" width="$WIDTH_TOTAL" height="20">
             <linearGradient id="smooth" x2="0" y2="100%">
               <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
@@ -55,6 +55,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add 193.svg
+          git add 194.svg
           git commit -m "Update download badge" || echo "No changes"
           git push

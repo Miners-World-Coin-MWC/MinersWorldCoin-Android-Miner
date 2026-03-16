@@ -11,8 +11,8 @@ android {
         applicationId "com.nugetzrul3.minersworldcoinandroidminer"
         minSdk 24
         targetSdk 35
-        versionCode 193
-        versionName "1.9.3"
+        versionCode 194
+        versionName "1.9.4"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -23,7 +23,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-
+            
         }
     }
 
