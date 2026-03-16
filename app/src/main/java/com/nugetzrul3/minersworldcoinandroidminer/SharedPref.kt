@@ -23,6 +23,20 @@ class SharedPref(context: Context) {
     }
 
     // ------------------------
+    // BATTERY OPTIMIZATION NOTICE
+    // ------------------------
+
+    fun setBatteryNoticeShown(shown: Boolean) {
+        val editor = mysharedPref.edit()
+        editor.putBoolean("battery_notice_shown", shown)
+        editor.apply()
+    }
+
+    fun getBatteryNoticeShown(): Boolean {
+        return mysharedPref.getBoolean("battery_notice_shown", false)
+    }
+
+    // ------------------------
     // START BUTTON STATE
     // ------------------------
 

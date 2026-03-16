@@ -12,20 +12,21 @@ jclass g_class;
 extern "C"
 void vprintf_app(const char *format, va_list arg) {
     char msg[1024];
-    vsprintf(msg, format, arg);
+    vsnprintf(msg, sizeof(msg), format, arg);
 
-    JNIEnv *env;
+    JNIEnv *env = nullptr;
     int is_detach_requred = 0;
 
-    g_jvm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
-    if (!env) {
+    if (g_jvm->GetEnv((void**)&env, JNI_VERSION_1_6) != JNI_OK) {
         g_jvm->AttachCurrentThread(&env, NULL);
         is_detach_requred = 1;
     }
 
     jstring smsg = env->NewStringUTF(msg);
     jmethodID mid = env->GetStaticMethodID(g_class, "output", "(Ljava/lang/String;)V");
+
     env->CallStaticVoidMethod(g_class, mid, smsg);
+    env->DeleteLocalRef(smsg);
 
     if (is_detach_requred) {
         g_jvm->DetachCurrentThread();
@@ -104,6 +105,16 @@ Java_com_example_ottylab_bitzenymininglibrary_BitZenyMiningLibrary_startBenchmar
         jint n_threads) {
     Log("startBenchmark");
     return start(NULL, NULL, NULL, n_threads);
+}
+
+extern "C"
+JNIEXPORT jboolean
+JNICALL
+Java_com_nugetzrul3_minersworldcoinmininglibrary_SugarMiner_isMining(
+        JNIEnv *env,
+        jobject /* this */) {
+    Log("isMining");
+    return (jboolean) is_running();  // call your existing C++ function
 }
 
 

@@ -12,19 +12,18 @@ import android.view.MenuItem
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import android.content.pm.PackageManager
-import android.app.NotificationManager
-import androidx.core.app.NotificationCompat
 import androidx.appcompat.widget.Toolbar
 import android.provider.Settings
 import android.os.PowerManager
 import android.content.Context
+import android.content.ComponentName
+import androidx.appcompat.app.AlertDialog
 import com.nugetzrul3.minersworldcoinandroidminer.databinding.ActivityMainBinding
 import com.nugetzrul3.minersworldcoinmininglibrary.SugarMiner
 import org.json.JSONObject
 import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
-import java.lang.ref.WeakReference
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
 
@@ -33,43 +32,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var sharedpref: SharedPref
 
-    private var sugarMiner: SugarMiner? = null
     private val logs: BlockingQueue<String?> = LinkedBlockingQueue(LOG_LINES)
-
-    private val shareUpdateHandler = Handler(Looper.getMainLooper())
-    
-    private class JNIHandler(activity: MainActivity) :
-        Handler(Looper.getMainLooper()) {
-
-        private val activityRef = WeakReference(activity)
-
-        override fun handleMessage(msg: Message) {
-            activityRef.get()?.let { activity ->
-                val log = msg.data.getString("log")
-                activity.updateLogs(log)
-
-                log?.let {
-                    // Detect accepted / rejected shares
-                    if (it.contains("(yay!!!)")) {
-                        activity.incrementAccepted()
-                    }
-
-                    if (it.contains("(booooo)")) {
-                        activity.incrementRejected()
-                    }
-
-                    // Extract hashrate from miner output
-                    val regex = Regex("""accepted:\s+\d+/\d+\s+\([\d.]+%\),\s+([\d.]+)\s+hash/s""")
-
-                    val match = regex.find(it)
-                    if (match != null) {
-                        val hash = match.groupValues[1]
-                        activity.updateHashrate("$hash H/s")
-                    }
-                }
-            }
-        }
-    }
 
     private fun updateLogs(logText: String?) {
         val rotated = Utils.rotateStringQueue(logs, logText)
@@ -93,7 +56,49 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Request notification permission for Android 13+
+        // Show battery optimization dialog on startup
+        Handler(Looper.getMainLooper()).postDelayed({
+
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+
+            val batteryOptimized = !powerManager.isIgnoringBatteryOptimizations(packageName)
+            val noticeShown = sharedpref.getBatteryNoticeShown()
+
+            if (batteryOptimized && !noticeShown) {
+
+                AlertDialog.Builder(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+                    .setTitle("Battery Optimization Detected")
+                    .setMessage(
+                        "Battery optimization is enabled for this app.\n\n" +
+                        "This may reduce mining performance and lower your hashrate.\n\n" +
+                        "For best performance you can disable battery optimization for this app."
+                    )
+                    .setCancelable(true)
+                    .setPositiveButton("Open Settings") { _, _ ->
+                        requestDisableBatteryOptimization()
+                        sharedpref.setBatteryNoticeShown(true)
+                    }
+                    .setNegativeButton("Later") { dialog, _ ->
+                        sharedpref.setBatteryNoticeShown(true)
+                        dialog.dismiss()
+                    }
+                    .show()
+            }
+
+        }, 1200)
+
+        // Receive logs from service
+        MiningService.logListener = null
+
+        MiningService.logListener = { log ->
+            if (!isFinishing && !isDestroyed) {
+                runOnUiThread {
+                    updateLogs(log)
+                }
+            }
+        }
+
+        // Request notification permission (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -105,41 +110,31 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val handler = JNIHandler(this)
-        sugarMiner = SugarMiner(handler)
-
         setupUI()
         loadConfig()
 
-        // Ensure miner always starts stopped
-        sharedpref.miningtrue(false)
-        binding.button.text = "Start"
+        if (sharedpref.loadminingstate()) {
+            binding.button.text = "Stop"
+        } else {
+            binding.button.text = "Start"
+        }
     }
 
     private fun setupUI() {
 
-    setSupportActionBar(binding.toolbar)
+        setSupportActionBar(binding.toolbar)
 
-    binding.textView6.movementMethod = ScrollingMovementMethod()
+        binding.textView6.movementMethod = ScrollingMovementMethod()
 
-    // --------- ALGORITHM LIST ----------
-    val algorithms = arrayOf(
-        /*"yespower",
-        "yespowersugar",*/
-        "YespowerMwc",
-        "YespowerAdvc",
-        /*"yespowerlitb",
-        "yespoweriots",
-        "yespowermbc",
-        "yespoweritc",
-        "yespoweriso"*/
-    )
+        val algorithms = arrayOf(
+            "YespowerMwc",
+            "YespowerAdvc",
+        )
 
-    val adapter = ArrayAdapter(this, R.layout.spinner_item, algorithms)
+        val adapter = ArrayAdapter(this, R.layout.spinner_item, algorithms)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.spinner.adapter = adapter
 
-        // --------- AUTO DETECT THREADS ----------
         val maxThreads = Runtime.getRuntime().availableProcessors()
         binding.threadLabel.text = "Thread Count (Max: $maxThreads)"
 
@@ -154,10 +149,8 @@ class MainActivity : AppCompatActivity() {
         threadAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.threadSpinner.adapter = threadAdapter
 
-        // Default to max threads selected
         binding.threadSpinner.setSelection(threadList.size - 1)
 
-        // --------- DARK MODE ----------
         binding.darkmode.isChecked = sharedpref.loadNightModestate() == true
         binding.darkmode.setOnCheckedChangeListener { _, isChecked ->
             sharedpref.setNightModeState(isChecked)
@@ -172,7 +165,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun getSelectedAlgorithm(): SugarMiner.Algorithms {
         return when (binding.spinner.selectedItem.toString()) {
-            /*"yespower" -> SugarMiner.Algorithms.ALGO_SUGAR_YESPOWER_1_0_1*/
             "YespowerMwc" -> SugarMiner.Algorithms.ALGO_MWC_YESPOWER_1_0_1
             "YespowerAdvc" -> SugarMiner.Algorithms.ALGO_ADVC_YESPOWER_1_0_1
             else -> SugarMiner.Algorithms.ALGO_MWC_YESPOWER_1_0_1
@@ -200,31 +192,127 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestDisableBatteryOptimization() {
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        val packageName = packageName
 
-        if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+            !powerManager.isIgnoringBatteryOptimizations(packageName)) {
+
+            // 1️⃣ Try direct request
+            try {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                intent.data = Uri.parse("package:$packageName")
+                startActivity(intent)
+                return
+            } catch (e: Exception) {
+                Log.e(TAG, "Direct optimization request failed", e)
+            }
+
+            // 2️⃣ Open battery optimization list
+            try {
+                val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                startActivity(intent)
+                return
+            } catch (e: Exception) {
+                Log.e(TAG, "Battery optimization list failed", e)
+            }
+
+            // 3️⃣ Open battery saver settings
+            try {
+                val intent = Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS)
+                startActivity(intent)
+                return
+            } catch (e: Exception) {
+                Log.e(TAG, "Battery saver settings failed", e)
+            }
+
+            // 4️⃣ Manufacturer specific battery managers
+            val manufacturer = Build.MANUFACTURER.lowercase()
+
+            try {
+                when {
+
+                    manufacturer.contains("xiaomi") -> {
+                        val intent = Intent()
+                        intent.component = ComponentName(
+                            "com.miui.securitycenter",
+                            "com.miui.permcenter.autostart.AutoStartManagementActivity"
+                        )
+                        startActivity(intent)
+                        return
+                    }
+
+                    manufacturer.contains("oppo") -> {
+                        val intent = Intent()
+                        intent.component = ComponentName(
+                            "com.coloros.safecenter",
+                            "com.coloros.safecenter.permission.startup.StartupAppListActivity"
+                        )
+                        startActivity(intent)
+                        return
+                    }
+
+                    manufacturer.contains("vivo") -> {
+                        val intent = Intent()
+                        intent.component = ComponentName(
+                            "com.vivo.permissionmanager",
+                            "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"
+                        )
+                        startActivity(intent)
+                        return
+                    }
+
+                    manufacturer.contains("huawei") -> {
+                        val intent = Intent()
+                        intent.component = ComponentName(
+                            "com.huawei.systemmanager",
+                            "com.huawei.systemmanager.optimize.process.ProtectActivity"
+                        )
+                        startActivity(intent)
+                        return
+                    }
+
+                    manufacturer.contains("samsung") -> {
+                        val intent = Intent()
+                        intent.component = ComponentName(
+                            "com.samsung.android.lool",
+                            "com.samsung.android.sm.ui.battery.BatteryActivity"
+                        )
+                        startActivity(intent)
+                        return
+                    }
+                }
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Manufacturer battery manager failed", e)
+            }
+
+            // 5️⃣ Final fallback → App settings
+            try {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                intent.data = Uri.parse("package:$packageName")
+                startActivity(intent)
+                return
+            } catch (e: Exception) {
+                Log.e(TAG, "App settings fallback failed", e)
+            }
 
             Toast.makeText(
                 this,
-                "Please disable battery optimization for stable mining",
+                "Unable to open battery settings on this device.",
                 Toast.LENGTH_LONG
             ).show()
-
-            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-            intent.data = Uri.parse("package:$packageName")
-            startActivity(intent)
         }
     }
 
     private fun toggleMining() {
+
         if (binding.button.text == "Start") {
 
             val pool = binding.editText.text.toString().trim()
             val wallet = binding.editText2.text.toString().trim()
             val password = binding.editText3.text.toString()
 
-            // Validate pool URL
             if (pool.isEmpty()) {
                 binding.textView6.text = "Error: No pool URL specified"
                 sharedpref.miningtrue(false)
@@ -233,7 +321,6 @@ class MainActivity : AppCompatActivity() {
 
             val algo = getSelectedAlgorithm()
 
-            // Validate wallet depending on algorithm
             val validWallet = when (algo) {
                 SugarMiner.Algorithms.ALGO_MWC_YESPOWER_1_0_1 -> isValidMWCAddress(wallet)
                 SugarMiner.Algorithms.ALGO_ADVC_YESPOWER_1_0_1 -> isValidADVCAddress(wallet)
@@ -246,60 +333,61 @@ class MainActivity : AppCompatActivity() {
                 return
             }
 
-            requestDisableBatteryOptimization()
+            /*val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
 
-            val threads = binding.threadSpinner.selectedItem.toString().toInt()
+            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                updateLogs("Battery optimization detected. Please disable it for stable mining.")
+                requestDisableBatteryOptimization()
+                return
+            }*/
 
-            // Reset mining stats for new session
-            acceptedShares = 0
-            rejectedShares = 0
-            currentHashrate = "0 H/s"
+            logs.clear()
+            binding.textView6.text = ""
 
-            if (sharedpref.loadButtonModestate() == false) {
-                sugarMiner?.stopMining()
-            }
-
-            // Create fresh miner instance
-            sugarMiner = SugarMiner(JNIHandler(this))
-
-            // Start miner
-            sugarMiner?.initMining()
-            sugarMiner?.beginMiner(
-                pool,
-                wallet,
-                password,
-                threads,
-                algo
-            )
-
-            // Then start foreground service
             startMiningService()
 
             binding.button.text = "Stop"
-
             sharedpref.setButtonModeState(false)
             sharedpref.miningtrue(true)
 
         } else {
 
-            binding.button.text = "Start"
-
-            // Stop miner safely
-            sugarMiner?.stopMining()
-            Thread.sleep(300)   // allow native threads to exit
-            sugarMiner = null
-
-            // Stop foreground service
             stopMiningService()
 
+            binding.button.text = "Start"
             sharedpref.setButtonModeState(true)
             sharedpref.miningtrue(false)
         }
     }
 
-    private fun updateButtonState() {
-        binding.button.text =
-            if (sharedpref.loadButtonModestate() == true) "Start" else "Stop"
+    private fun startMiningService() {
+
+        val intent = Intent(this, MiningService::class.java)
+
+        intent.action = "START_MINING"
+        intent.putExtra("pool", binding.editText.text.toString())
+        intent.putExtra("wallet", binding.editText2.text.toString())
+        intent.putExtra("password", binding.editText3.text.toString())
+        intent.putExtra("threads", binding.threadSpinner.selectedItem.toString().toInt())
+        intent.putExtra("algo", getSelectedAlgorithm().ordinal)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+    }
+
+    private fun stopMiningService() {
+
+        val intent = Intent(this, MiningService::class.java)
+        intent.action = "STOP_MINING"
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -311,17 +399,10 @@ class MainActivity : AppCompatActivity() {
 
         when (item.itemId) {
 
-            R.id.mygithub ->
-                openUrl("https://github.com/CryptoLover705")
-
-            R.id.website ->
-                openUrl("https://minersworld.org")
-
-            R.id.MinersWorldCoingithub ->
-                openUrl("https://github.com/Miners-World-Coin-MWC")
-
-            R.id.Donate ->
-                openUrl("https://miners-world-coin-mwc.github.io/explorer/#/address/9R5aTkmbJs7pPL4hEXvTps1EyStYbHgGTF")
+            R.id.mygithub -> openUrl("https://github.com/CryptoLover705")
+            R.id.website -> openUrl("https://minersworld.org")
+            R.id.MinersWorldCoingithub -> openUrl("https://github.com/Miners-World-Coin-MWC")
+            R.id.Donate -> openUrl("https://miners-world-coin-mwc.github.io/explorer/#/address/9R5aTkmbJs7pPL4hEXvTps1EyStYbHgGTF")
 
             R.id.settings ->
                 startActivity(Intent(this, SettingsPage::class.java))
@@ -341,11 +422,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
+
         if (doubleBackPressed) {
             super.onBackPressed()
         } else {
             doubleBackPressed = true
             Toast.makeText(this, "Click back again to Exit", Toast.LENGTH_SHORT).show()
+
             Handler(Looper.getMainLooper()).postDelayed(
                 { doubleBackPressed = false }, 1500
             )
@@ -358,6 +441,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun saveConfig() {
+
         val json = JSONObject().apply {
             put("URL", binding.editText.text.toString())
             put("User", binding.editText2.text.toString())
@@ -371,10 +455,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadConfig() {
+
         val file = File(filesDir, "config.json")
         if (!file.exists()) return
 
         try {
+
             val json = FileInputStream(file).bufferedReader().use { it.readText() }
             val obj = JSONObject(json)
 
@@ -382,11 +468,13 @@ class MainActivity : AppCompatActivity() {
             binding.editText2.setText(obj.getString("User"))
             binding.editText3.setText(obj.getString("Passwd"))
             binding.threadSpinner.setSelection(obj.getInt("CPU"))
+
             val algoIndex = obj.getInt("Algorithm")
+
             if (algoIndex < binding.spinner.adapter.count) {
                 binding.spinner.setSelection(algoIndex)
             } else {
-                binding.spinner.setSelection(0) // fallback safely
+                binding.spinner.setSelection(0)
             }
 
         } catch (e: IOException) {
@@ -394,64 +482,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private var acceptedShares = 0
-    private var rejectedShares = 0
-    private var currentHashrate = "0 H/s"
-
-    fun incrementAccepted() {
-        acceptedShares++
-        updateNotification()
-    }
-
-    fun incrementRejected() {
-        rejectedShares++
-        updateNotification()
-    }
-
-    fun updateHashrate(hash: String) {
-        currentHashrate = hash
-        updateNotification()
-    }
-
-    private fun updateNotification() {
-        val notificationText = "Hashrate: $currentHashrate | Shares: $acceptedShares/$rejectedShares"
-
-        val builder = NotificationCompat.Builder(this, MiningService.CHANNEL_ID)
-            .setContentTitle("⛏ MinersWorldCoin Mining")
-            .setContentText(notificationText)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setOngoing(true)
-
-        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(MiningService.NOTIFICATION_ID, builder.build())
-    }
-    
-    private fun updateHashrateUI() {
-        binding.textView6.append("\nHashrate: $currentHashrate | Shares: $acceptedShares/$rejectedShares")
-    }
-
-    private fun startMiningService() {
-
-        val serviceIntent = Intent(this, MiningService::class.java)
-        serviceIntent.action = "START_MINING"
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
-        } else {
-            startService(serviceIntent)
-        }
-    }
-
-    private fun stopMiningService() {
-
-        val intent = Intent(this, MiningService::class.java)
-        intent.action = "STOP_MINING"
-        startService(intent)
-    }
-
     private fun restartApp() {
         startActivity(Intent(this, MainActivity::class.java))
         finish()
+    }
+
+    override fun onDestroy() {
+        MiningService.logListener = null
+        super.onDestroy()
     }
 
     companion object {

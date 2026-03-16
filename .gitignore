@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 /minersworldcoinandroidminerlibrary
+distribution/curl
+distribution/janson
+distribution/zlib

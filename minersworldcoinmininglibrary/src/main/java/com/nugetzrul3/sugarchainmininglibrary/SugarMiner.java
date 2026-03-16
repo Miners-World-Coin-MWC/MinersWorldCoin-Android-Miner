@@ -12,19 +12,12 @@ public class SugarMiner {
     }
 
     public enum Algorithms {
-        // ALGO_SUGAR_YESPOWER_1_0_1,
-        // ALGO_ISO_YESPOWER_1_0_1,
-        // ALGO_URX_YESPOWER_1_0_1,
-        // ALGO_LITB_YESPOWER_1_0_1,
-        // ALGO_IOTS_YESPOWER_1_0_1,
-        // ALGO_ITC_YESPOWER_1_0_1,
         ALGO_MBC_YESPOWER_1_0_1,
-        // ALGO_YTN_YESPOWER_1_0_1,
         ALGO_ADVC_YESPOWER_1_0_1,
         ALGO_MWC_YESPOWER_1_0_1,
     }
 
-    private static Handler sHandler;
+    private static volatile Handler sHandler;
 
     public SugarMiner(Handler handler) {
         sHandler = handler;
@@ -43,17 +36,23 @@ public class SugarMiner {
     }
 
     private static void output(String message) {
+
+        Handler handler = sHandler;
+
+        if (handler == null) {
+            return;
+        }
+
         Message msg = new Message();
         Bundle bundle = new Bundle();
         bundle.putString("log", message);
         msg.setData(bundle);
 
-        if (sHandler != null) {
-            sHandler.sendMessage(msg);
-        }
+        handler.sendMessage(msg);
     }
 
     public native int stopMining();
     private native int startMining(String url, String user, String password, int n_threads, int algo);
     public native int initMining();
+    public native boolean isMining();
 }
