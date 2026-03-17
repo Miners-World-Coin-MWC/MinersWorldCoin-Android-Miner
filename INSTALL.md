@@ -10,7 +10,7 @@ The **MWC Android Miner** allows anyone to mine MinersWorldCoin directly from th
 
 1. Open your Android device’s browser.
 2. Download the latest MWC Android Miner APK from GitHub:
-   [Download MWC Android Miner v1.9.0](https://github.com/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/releases/download/1.9.0/androidMinerMWC.apk)
+   [Download MWC Android Miner v1.9.4](https://github.com/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/releases/download/1.9.4/androidMinerMWC.apk)
 3. Wait for the download to complete.
 
 > ![Screenshot of Android Miner APK Download](https://media.discordapp.net/attachments/1442194072147067083/1477786148930851040/Screenshot_20260301_215335_Opera_GX.jpg?ex=69a60719\&is=69a4b599\&hm=7544c4a457b365d13e7264145be455a9a0bd5d01fac4f5d039cea8f2ad2af50c&=\&format=webp\&width=440\&height=953)
