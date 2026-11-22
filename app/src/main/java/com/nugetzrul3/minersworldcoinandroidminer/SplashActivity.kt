@@ -27,7 +27,12 @@ class SplashActivity : AppCompatActivity() {
         }
 
         Handler(Looper.getMainLooper()).postDelayed({
-            startActivity(Intent(this, MainActivity::class.java))
+            val target = if (SharedPref(this).tutorialSeen()) {
+                MainActivity::class.java
+            } else {
+                TutorialActivity::class.java
+            }
+            startActivity(Intent(this, target))
             finish()
         }, 3000)
     }

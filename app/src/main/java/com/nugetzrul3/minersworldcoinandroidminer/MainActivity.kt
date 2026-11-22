@@ -4,6 +4,8 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -13,11 +15,16 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.Editable
+import android.text.TextWatcher
 import android.text.method.ScrollingMovementMethod
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,9 +47,25 @@ class MainActivity : AppCompatActivity() {
 
     private val logs: BlockingQueue<String?> = LinkedBlockingQueue(LOG_LINES)
 
+    private lateinit var setupStore: SetupStore
+    private var setups: MutableList<MinerSetup> = mutableListOf()
+    private lateinit var poolPresetAdapter: ArrayAdapter<String>
+    private lateinit var setupAdapter: ArrayAdapter<String>
+    private var poolPresetUrls: List<String> = emptyList()
+    private var settingPoolFromPreset = false
+    private var settingPoolFromSetup = false
+    private val statusHandler = Handler(Looper.getMainLooper())
+    private val statusRunnable = object : Runnable {
+        override fun run() {
+            updateSessionStatus()
+            statusHandler.postDelayed(this, 1000)
+        }
+    }
+
     private var receiverRegistered = false
     private val miningStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
+            intent.getStringExtra("reason")?.let { updateLogs(it) }
             syncButtonState()
         }
     }
@@ -91,6 +114,9 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        setupStore = SetupStore(this)
+        setups = setupStore.load()
+
         setupUI()
         loadConfig()
         syncButtonState()
@@ -126,11 +152,198 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         // The service is the source of truth: it may have been killed while the UI was away.
         syncButtonState()
+        statusHandler.removeCallbacks(statusRunnable)
+        statusHandler.post(statusRunnable)
+    }
+
+    override fun onPause() {
+        statusHandler.removeCallbacks(statusRunnable)
+        super.onPause()
+    }
+
+    private fun refreshPoolPresets(selectedUrl: String? = null) {
+        val labels = mutableListOf("Custom")
+        val urls = mutableListOf("")
+        labels += "bmine.net:3033"
+        urls += POOL_PRESET_URL
+
+        val custom = sharedpref.customPools().sorted()
+        for (pool in custom) {
+            if (pool in urls || pool == POOL_PRESET_URL) continue
+            urls += pool
+            labels += pool.removePrefix("stratum+tcp://")
+        }
+
+        poolPresetUrls = urls
+        settingPoolFromPreset = true
+        poolPresetAdapter.clear()
+        poolPresetAdapter.addAll(labels)
+        poolPresetAdapter.notifyDataSetChanged()
+
+        val index = selectedUrl?.let { urls.indexOf(it) } ?: -1
+        binding.poolPresetSpinner.setSelection(if (index >= 0) index else 0)
+        settingPoolFromPreset = false
+    }
+
+    private fun refreshSetupSpinner(selectedName: String? = null) {
+        val names = mutableListOf("Select a saved setup")
+        names += setups.map { it.name }
+        setupAdapter.clear()
+        setupAdapter.addAll(names)
+        setupAdapter.notifyDataSetChanged()
+
+        val index = selectedName?.let { names.indexOf(it) } ?: -1
+        binding.setupSpinner.setSelection(if (index >= 0) index else 0)
+    }
+
+    private fun promptSavePool() {
+        val pool = binding.editText.text.toString().trim()
+        if (pool.isEmpty()) {
+            Toast.makeText(this, "Enter a pool URL first", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val pools = sharedpref.customPools().toMutableSet()
+        if (!pools.add(pool)) {
+            Toast.makeText(this, "Pool already saved", Toast.LENGTH_SHORT).show()
+            return
+        }
+        sharedpref.setCustomPools(pools)
+        refreshPoolPresets(pool)
+        Toast.makeText(this, "Pool saved", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun promptSaveSetup() {
+        val nameInput = EditText(this).apply {
+            hint = "Setup name"
+            setSingleLine(true)
+            if (binding.setupSpinner.selectedItemPosition > 0) {
+                setText(binding.setupSpinner.selectedItem.toString())
+            }
+        }
+
+        AlertDialog.Builder(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+            .setTitle("Save setup")
+            .setMessage("Give this configuration a name:")
+            .setView(nameInput)
+            .setPositiveButton("Save") { _, _ ->
+                val name = nameInput.text.toString().trim()
+                if (name.isEmpty()) {
+                    Toast.makeText(this, "Enter a name", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+
+                val setup = MinerSetup(
+                    name = name,
+                    pool = binding.editText.text.toString().trim(),
+                    wallet = binding.editText2.text.toString().trim(),
+                    password = binding.editText3.text.toString(),
+                    threads = binding.threadSpinner.selectedItemPosition,
+                    algo = binding.spinner.selectedItemPosition
+                )
+
+                val existing = setups.indexOfFirst { it.name.equals(name, ignoreCase = true) }
+                if (existing >= 0) setups[existing] = setup else setups += setup
+
+                setupStore.save(setups)
+                refreshSetupSpinner(name)
+                Toast.makeText(this, "Setup saved: $name", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun deleteSelectedSetup() {
+        val position = binding.setupSpinner.selectedItemPosition
+        if (position <= 0 || position > setups.size) {
+            Toast.makeText(this, "Select a saved setup to delete", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val setup = setups[position - 1]
+        setups.removeAt(position - 1)
+        setupStore.save(setups)
+        refreshSetupSpinner()
+        Toast.makeText(this, "Deleted: ${setup.name}", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun loadSetup(setup: MinerSetup) {
+        settingPoolFromSetup = true
+        binding.editText.setText(setup.pool)
+        binding.editText2.setText(setup.wallet)
+        binding.editText3.setText(setup.password)
+        if (setup.threads in 0 until binding.threadSpinner.adapter.count) {
+            binding.threadSpinner.setSelection(setup.threads)
+        }
+        if (setup.algo in 0 until binding.spinner.adapter.count) {
+            binding.spinner.setSelection(setup.algo)
+        }
+        refreshPoolPresets(setup.pool)
+        settingPoolFromSetup = false
     }
 
     private fun setupUI() {
         setSupportActionBar(binding.toolbar)
         binding.textView6.movementMethod = ScrollingMovementMethod()
+
+        poolPresetAdapter = ArrayAdapter(this, R.layout.spinner_item, mutableListOf<String>())
+            .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        binding.poolPresetSpinner.adapter = poolPresetAdapter
+        refreshPoolPresets()
+
+        binding.poolPresetSpinner.onItemSelectedListener =
+            object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>, view: View?, position: Int, id: Long
+                ) {
+                    if (settingPoolFromPreset || settingPoolFromSetup) return
+                    val url = poolPresetUrls.getOrNull(position).orEmpty()
+                    if (url.isNotEmpty()) {
+                        settingPoolFromPreset = true
+                        binding.editText.setText(url)
+                        settingPoolFromPreset = false
+                    }
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>) = Unit
+            }
+
+        binding.editText.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) =
+                Unit
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+
+            override fun afterTextChanged(s: Editable?) {
+                if (settingPoolFromPreset || settingPoolFromSetup) return
+                val selected = poolPresetUrls.getOrNull(binding.poolPresetSpinner.selectedItemPosition)
+                if (!selected.isNullOrEmpty() && s.toString() != selected) {
+                    binding.poolPresetSpinner.setSelection(0)
+                }
+            }
+        })
+
+        setupAdapter = ArrayAdapter(this, R.layout.spinner_item, mutableListOf<String>())
+            .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        binding.setupSpinner.adapter = setupAdapter
+        refreshSetupSpinner()
+
+        binding.savePoolButton.setOnClickListener { promptSavePool() }
+        binding.saveSetupButton.setOnClickListener { promptSaveSetup() }
+        binding.deleteSetupButton.setOnClickListener { deleteSelectedSetup() }
+
+        binding.setupSpinner.onItemSelectedListener =
+            object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>, view: View?, position: Int, id: Long
+                ) {
+                    if (position > 0 && position <= setups.size) {
+                        loadSetup(setups[position - 1])
+                    }
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>) = Unit
+            }
 
         binding.spinner.adapter = ArrayAdapter(
             this,
@@ -154,6 +367,35 @@ class MainActivity : AppCompatActivity() {
             recreateForThemeChange()
         }
 
+        binding.clearLogsButton.setOnClickListener {
+            logs.clear()
+            binding.textView6.text = ""
+        }
+
+        binding.copyLogsButton.setOnClickListener {
+            val text = binding.textView6.text.toString()
+            if (text.isBlank()) {
+                Toast.makeText(this, "No logs to copy", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("Mining logs", text))
+            Toast.makeText(this, "Logs copied", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.shareLogsButton.setOnClickListener {
+            val text = binding.textView6.text.toString()
+            if (text.isBlank()) {
+                Toast.makeText(this, "No logs to share", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+            startActivity(Intent.createChooser(shareIntent, "Share mining logs"))
+        }
+
         binding.button.setOnClickListener { toggleMining() }
     }
 
@@ -161,6 +403,42 @@ class MainActivity : AppCompatActivity() {
         binding.button.text = getString(
             if (MiningService.isActive) R.string.stop else R.string.start
         )
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun updateSessionStatus() {
+        if (!MiningService.isActive) {
+            binding.sessionStatus.text = "Mining: stopped"
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        val uptime = (now - MiningService.sessionStartTime) / 1000
+        val extra = when {
+            MiningService.donationActive ->
+                " · Support window: ${formatDuration((MiningService.donationEndAt - now) / 1000)} left"
+
+            MiningService.nextDonationAt > 0 ->
+                " · Next support window in ${formatDuration((MiningService.nextDonationAt - now) / 1000)}"
+
+            else -> ""
+        }
+        val rate = if (MiningService.currentHashrate != "0 H/s") {
+            " · ${MiningService.currentHashrate}"
+        } else {
+            ""
+        }
+        binding.sessionStatus.text =
+            "${MiningService.connectionStatus}$rate · Uptime ${formatDuration(uptime)}$extra"
+    }
+
+    private fun formatDuration(seconds: Long): String {
+        val s = seconds.coerceAtLeast(0)
+        return when {
+            s >= 3600 -> "${s / 3600}h ${(s % 3600) / 60}m"
+            s >= 60 -> "${s / 60}m ${s % 60}s"
+            else -> "${s}s"
+        }
     }
 
     private fun getSelectedAlgorithm(): SugarMiner.Algorithms =
@@ -309,6 +587,7 @@ class MainActivity : AppCompatActivity() {
                 "https://miners-world-coin-mwc.github.io/explorer/#/address/9R5aTkmbJs7pPL4hEXvTps1EyStYbHgGTF"
             )
 
+            R.id.tutorial -> startActivity(Intent(this, TutorialActivity::class.java))
             R.id.settings -> startActivity(Intent(this, SettingsPage::class.java))
 
             R.id.stats -> startActivity(
@@ -380,6 +659,7 @@ class MainActivity : AppCompatActivity() {
         try {
             val obj = JSONObject(file.bufferedReader().use { it.readText() })
             binding.editText.setText(obj.getString("URL"))
+            refreshPoolPresets(binding.editText.text.toString())
             binding.editText2.setText(obj.getString("User"))
             binding.editText3.setText(obj.getString("Passwd"))
 
@@ -415,5 +695,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val LOG_LINES = 1000
         private const val TAG = "SugarMiner"
+        private const val POOL_PRESET_URL = "stratum+tcp://bmine.net:3033"
     }
 }

@@ -17,6 +17,8 @@
                 android:title="Donate to me"/>
             <item android:id="@+id/mygithub"
                 android:title="More projects" />
+            <item android:id="@+id/tutorial"
+                android:title="Tutorial" />
             <item android:id="@+id/settings"
                 android:title="Settings" />
             <item android:id="@+id/stats"

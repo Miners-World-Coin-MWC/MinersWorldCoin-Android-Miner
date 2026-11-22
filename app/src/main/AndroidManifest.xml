@@ -35,6 +35,12 @@
         </activity>
 
         <activity
+            android:name=".TutorialActivity"
+            android:parentActivityName=".MainActivity"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+
+        <activity
             android:name=".MiningStats"
             android:parentActivityName=".MainActivity"
             android:screenOrientation="portrait"

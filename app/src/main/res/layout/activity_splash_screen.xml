@@ -5,30 +5,27 @@
     android:id="@+id/activity_splash_screen"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:paddingBottom="16dp"
-    android:paddingTop="16dp"
-    android:paddingLeft="16dp"
-    android:paddingRight="16dp"
+    android:padding="16dp"
     android:gravity="center"
     android:background="#FFFFFF"
     tools:context=".SplashActivity"
     android:orientation="vertical">
 
-
     <pl.droidsonroids.gif.GifImageView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:src="@drawable/minersworldcoin_mining"/>
+        android:layout_height="200dp"
+        android:scaleType="fitCenter"
+        android:adjustViewBounds="true"
+        android:src="@drawable/minersworldcoin_mining" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
         android:gravity="center_horizontal"
         android:textAlignment="center"
         app:fontFamily="@font/ubuntu_bold"
-        android:textSize="17dp"
-        android:text="Mining made easy and accessible to all - Miners World Coin 2025"/>
-
-
+        android:textSize="17sp"
+        android:text="Mining made easy and accessible to all - Miners World Coin 2025" />
 
 </LinearLayout>

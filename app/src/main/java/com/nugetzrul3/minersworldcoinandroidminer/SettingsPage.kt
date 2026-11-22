@@ -47,6 +47,7 @@ class SettingsPage : AppCompatActivity() {
         showVersion()
         setupNotificationSetting()
         setupDonationSetting()
+        setupBatteryGuardSetting()
 
         findViewById<android.widget.Button>(R.id.batterySettingsButton).setOnClickListener {
             BatteryOptimization.openSettings(this)
@@ -82,6 +83,14 @@ class SettingsPage : AppCompatActivity() {
         donationSwitch.setOnCheckedChangeListener { _, isChecked ->
             sharedpref.setDonationsEnabled(isChecked)
             sendBroadcast(Intent(MiningService.ACTION_DONATION_SETTINGS_CHANGED))
+        }
+    }
+
+    private fun setupBatteryGuardSetting() {
+        val guardSwitch = findViewById<Switch>(R.id.batteryGuardSwitch)
+        guardSwitch.isChecked = sharedpref.batteryGuardEnabled()
+        guardSwitch.setOnCheckedChangeListener { _, isChecked ->
+            sharedpref.setBatteryGuardEnabled(isChecked)
         }
     }
 

@@ -26,4 +26,20 @@ class SharedPref(context: Context) {
         prefs.edit().putBoolean("donations_enabled", enabled).apply()
 
     fun donationsEnabled(): Boolean = prefs.getBoolean("donations_enabled", true)
+
+    fun setBatteryGuardEnabled(enabled: Boolean) =
+        prefs.edit().putBoolean("battery_guard_enabled", enabled).apply()
+
+    fun batteryGuardEnabled(): Boolean = prefs.getBoolean("battery_guard_enabled", true)
+
+    fun setTutorialSeen(seen: Boolean) =
+        prefs.edit().putBoolean("tutorial_seen", seen).apply()
+
+    fun tutorialSeen(): Boolean = prefs.getBoolean("tutorial_seen", false)
+
+    fun customPools(): Set<String> =
+        prefs.getStringSet("custom_pools", emptySet()) ?: emptySet()
+
+    fun setCustomPools(pools: Set<String>) =
+        prefs.edit().putStringSet("custom_pools", pools).apply()
 }

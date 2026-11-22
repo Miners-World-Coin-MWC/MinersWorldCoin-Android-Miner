@@ -4,6 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:fitsSystemWindows="true"
     android:background="?attr/backgroundcolor">
 
     <androidx.appcompat.widget.Toolbar
@@ -69,6 +70,23 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="After 60 minutes of mining, your hashrate is directed to the project address for 5 minutes, then automatically returns to your address."
+                android:textColor="?attr/textcolor"
+                android:textSize="12sp" />
+
+            <Switch
+                android:id="@+id/batteryGuardSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="Battery &amp; heat protection"
+                android:textColor="?attr/textcolor"
+                android:textSize="15sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Automatically pauses mining when the battery drops to 15% (while unplugged) or the device gets too hot."
                 android:textColor="?attr/textcolor"
                 android:textSize="12sp" />
 

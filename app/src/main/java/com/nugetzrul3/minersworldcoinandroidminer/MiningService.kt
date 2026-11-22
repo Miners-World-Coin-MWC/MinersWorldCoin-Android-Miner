@@ -3,11 +3,13 @@ package com.nugetzrul3.minersworldcoinandroidminer
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -44,6 +46,18 @@ class MiningService : Service() {
         var rejectedShares = 0
         var currentHashrate = "0 H/s"
 
+        /** Status values consumed by the main screen. */
+        @Volatile
+        var sessionStartTime = 0L
+        @Volatile
+        var nextDonationAt = 0L
+        @Volatile
+        var donationEndAt = 0L
+        @Volatile
+        var donationActive = false
+        @Volatile
+        var connectionStatus = "Stopped"
+
         var logListener: ((String) -> Unit)? = null
         val logBuffer: MutableList<String> = mutableListOf()
 
@@ -51,7 +65,9 @@ class MiningService : Service() {
         private const val POWER_LOCK_TIMEOUT = 12 * 60 * 60 * 1000L
         private const val NOTIFICATION_DELAY_MS = 60_000L
         private const val NOTIFICATION_INTERVAL_MS = 5_000L
+        private const val GUARD_INTERVAL_MS = 30_000L
         private const val MAX_LOG_LINES = 500
+        private const val LOW_BATTERY_PERCENT = 15
     }
 
     private data class MinerConfig(
@@ -72,7 +88,6 @@ class MiningService : Service() {
     private var minerStartTime = 0L
     private var minerConfig: MinerConfig? = null
     private var hashDetected = false
-    private var donationActive = false
 
     private val handler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor { r -> Thread(r, "mining-stop") }
@@ -80,6 +95,7 @@ class MiningService : Service() {
     private var updateRunnable: Runnable? = null
     private var donationRunnable: Runnable? = null
     private var donationEndRunnable: Runnable? = null
+    private var guardRunnable: Runnable? = null
     private var receiverRegistered = false
 
     private val settingsReceiver = object : BroadcastReceiver() {
@@ -111,17 +127,33 @@ class MiningService : Service() {
             // the share result and the hashrate, so all three must run.
             if (MiningLogParser.isAccepted(log)) {
                 acceptedShares++
+                connectionStatus = "Connected"
                 service.updateNotification()
             }
 
             if (MiningLogParser.isRejected(log)) {
                 rejectedShares++
+                connectionStatus = "Connected"
                 service.updateNotification()
             }
 
+            // Threads are running immediately; don't wait for a pool share before
+            // reporting that mining has started.
+            if (MiningLogParser.isMinerStarted(log)) {
+                service.onMiningStarted()
+            }
+
             val hashrate = MiningLogParser.parseHashrate(log)
+                ?: MiningLogParser.parseTotalHashrate(log)
             if (hashrate != null) {
                 service.onHashrateDetected(hashrate)
+            }
+
+            if (MiningLogParser.isConnected(log)) {
+                connectionStatus = "Connected"
+            }
+            if (MiningLogParser.isConnectionFailure(log)) {
+                connectionStatus = "Reconnecting…"
             }
         }
     }
@@ -172,6 +204,11 @@ class MiningService : Service() {
             stopAfterSwap = false
             minerConfig = config
             minerStartTime = System.currentTimeMillis()
+            sessionStartTime = minerStartTime
+            nextDonationAt = 0L
+            donationEndAt = 0L
+            donationActive = false
+            connectionStatus = "Connecting…"
             acceptedShares = 0
             rejectedShares = 0
             currentHashrate = "0 H/s"
@@ -206,7 +243,10 @@ class MiningService : Service() {
             return
         }
 
-        if (!isSwap) scheduleDonation(config)
+        if (!isSwap) {
+            startDeviceGuard()
+            scheduleDonation(config)
+        }
     }
 
     /** Native stop() blocks until all miner threads exit, so never call it on the main thread. */
@@ -228,11 +268,12 @@ class MiningService : Service() {
         }
     }
 
-    private fun stopMinerAsync() {
+    private fun stopMinerAsync(reason: String? = null) {
         cancelDonationTimers()
+        cancelDeviceGuard()
         stopAfterSwap = isStopping
         isActive = false
-        broadcastState(false)
+        broadcastState(false, reason)
         countdownRunnable?.let { handler.removeCallbacks(it); countdownRunnable = null }
         updateRunnable?.let { handler.removeCallbacks(it); updateRunnable = null }
 
@@ -255,8 +296,10 @@ class MiningService : Service() {
 
     private fun finishService() {
         cancelDonationTimers()
+        cancelDeviceGuard()
         isActive = false
         stopAfterSwap = false
+        connectionStatus = "Stopped"
         releaseWakeLock()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -284,8 +327,12 @@ class MiningService : Service() {
     private fun scheduleDonation(config: MinerConfig) {
         donationRunnable?.let { handler.removeCallbacks(it) }
         donationRunnable = null
-        if (!SharedPref(this).donationsEnabled()) return
+        if (!SharedPref(this).donationsEnabled()) {
+            nextDonationAt = 0L
+            return
+        }
 
+        nextDonationAt = System.currentTimeMillis() + DonationConfig.INTERVAL_MS
         donationRunnable = Runnable {
             donationRunnable = null
             if (!isActive || isStopping || minerConfig !== config) return@Runnable
@@ -295,6 +342,8 @@ class MiningService : Service() {
 
     private fun startDonationPeriod(config: MinerConfig) {
         donationActive = true
+        donationEndAt = System.currentTimeMillis() + DonationConfig.DURATION_MS
+        nextDonationAt = 0L
         updateNotification(force = true)
 
         val wallet = DonationConfig.walletFor(config.algo.name)
@@ -309,6 +358,7 @@ class MiningService : Service() {
 
     private fun endDonationPeriod(config: MinerConfig) {
         donationActive = false
+        donationEndAt = 0L
         swapMiner(config) {
             if (SharedPref(this@MiningService).donationsEnabled()) {
                 scheduleDonation(config)
@@ -325,6 +375,7 @@ class MiningService : Service() {
             // Cancel the next cycle, but let an active 5-minute window finish so
             // the miner always returns to the user's address.
             donationRunnable?.let { handler.removeCallbacks(it); donationRunnable = null }
+            nextDonationAt = 0L
         }
     }
 
@@ -332,10 +383,56 @@ class MiningService : Service() {
         donationRunnable?.let { handler.removeCallbacks(it); donationRunnable = null }
         donationEndRunnable?.let { handler.removeCallbacks(it); donationEndRunnable = null }
         donationActive = false
+        donationEndAt = 0L
+        nextDonationAt = 0L
     }
 
-    private fun broadcastState(active: Boolean) {
-        sendBroadcast(Intent(ACTION_MINING_STATE).putExtra("active", active))
+    private fun startDeviceGuard() {
+        cancelDeviceGuard()
+        guardRunnable = object : Runnable {
+            override fun run() {
+                checkDeviceGuard()
+                if (isActive) handler.postDelayed(this, GUARD_INTERVAL_MS)
+            }
+        }.also { handler.postDelayed(it, GUARD_INTERVAL_MS) }
+    }
+
+    private fun cancelDeviceGuard() {
+        guardRunnable?.let { handler.removeCallbacks(it); guardRunnable = null }
+    }
+
+    private fun checkDeviceGuard() {
+        if (!SharedPref(this).batteryGuardEnabled() || !isActive || isStopping) return
+
+        val battery = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val level = battery?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = battery?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
+        val plugged = battery?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0
+        val percent = if (level >= 0 && scale > 0) level * 100 / scale else 100
+        val lowBattery = plugged == 0 && percent <= LOW_BATTERY_PERCENT
+
+        val hot = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val powerManager = getSystemService(PowerManager::class.java)
+            powerManager.currentThermalStatus >= PowerManager.THERMAL_STATUS_SEVERE
+        } else {
+            false
+        }
+
+        if (!lowBattery && !hot) return
+
+        val cause = if (hot) "device is too hot" else "battery is at $percent%"
+        val reason = "Mining paused: $cause"
+        Log.w(TAG, reason)
+        showError(reason)
+        stopMinerAsync(reason)
+    }
+
+    private fun broadcastState(active: Boolean, reason: String? = null) {
+        sendBroadcast(
+            Intent(ACTION_MINING_STATE)
+                .putExtra("active", active)
+                .putExtra("reason", reason)
+        )
     }
 
     private fun acquireWakeLock() {
@@ -350,9 +447,18 @@ class MiningService : Service() {
         wakeLock = null
     }
 
+    private fun onMiningStarted() {
+        hashDetected = true
+        connectionStatus = "Connected"
+        // Worker threads are live - stop the "Starting miner..." countdown now.
+        countdownRunnable?.let { handler.removeCallbacks(it); countdownRunnable = null }
+        updateNotification()
+    }
+
     private fun onHashrateDetected(hashrate: String) {
         currentHashrate = hashrate
         hashDetected = true
+        connectionStatus = "Connected"
         // Real hashing has begun - drop the "Starting miner..." countdown immediately.
         countdownRunnable?.let { handler.removeCallbacks(it); countdownRunnable = null }
         updateNotification()
@@ -396,6 +502,15 @@ class MiningService : Service() {
         handler.postDelayed(updateRunnable!!, NOTIFICATION_INTERVAL_MS)
     }
 
+    private fun openAppIntent(): PendingIntent {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        return PendingIntent.getActivity(this, 0, intent, flags)
+    }
+
     private fun buildNotification(text: String): Notification {
         val notificationsEnabled = SharedPref(this).notificationsEnabled()
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -404,6 +519,7 @@ class MiningService : Service() {
                 if (notificationsEnabled) text else "Mining in background (notifications off)"
             )
             .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentIntent(openAppIntent())
             .setOngoing(true)
 
         if (!notificationsEnabled) {
@@ -444,6 +560,7 @@ class MiningService : Service() {
 
     override fun onDestroy() {
         cancelDonationTimers()
+        cancelDeviceGuard()
         countdownRunnable?.let { handler.removeCallbacks(it); countdownRunnable = null }
         updateRunnable?.let { handler.removeCallbacks(it); updateRunnable = null }
         if (receiverRegistered) {

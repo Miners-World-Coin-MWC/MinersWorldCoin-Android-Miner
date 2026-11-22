@@ -11,4 +11,8 @@
     <string name="website"><a href="https://minersworld.org">Website</a></string>
     <string name="devdonate"><a href="https://miners-world-coin-mwc.github.io/explorer/#/address/9R5aTkmbJs7pPL4hEXvTps1EyStYbHgGTF">Donate to me!</a></string>
     <string name="myGithub"><a href="https://github.com/CryptoLover705">More Projects</a></string>
+    <string-array name="pool_presets">
+        <item>Custom</item>
+        <item>bmine.net:3033</item>
+    </string-array>
 </resources>

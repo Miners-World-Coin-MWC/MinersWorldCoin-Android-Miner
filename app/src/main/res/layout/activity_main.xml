@@ -5,6 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:fitsSystemWindows="true"
     android:background="?attr/backgroundcolor"
     tools:context=".MainActivity">
 
@@ -16,7 +17,7 @@
         app:title="minersworldcoin Android Miner"
         app:titleTextColor="?attr/textcolor" />
 
-    <!-- The form scrolls independently of the log panel below. -->
+    <!-- The form scrolls independently of the status and log panels below. -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -48,6 +49,31 @@
                     android:textColor="?attr/textcolor"
                     android:textSize="14sp" />
             </androidx.cardview.widget.CardView>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Pool preset"
+                android:textColor="?attr/textcolor"
+                android:paddingTop="10dp"
+                android:paddingBottom="4dp"
+                android:textSize="13sp" />
+
+            <Spinner
+                android:id="@+id/poolPresetSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:backgroundTint="?attr/textcolor" />
+
+            <Button
+                android:id="@+id/savePoolButton"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Save current pool"
+                android:textColor="?attr/textcolor"
+                android:textSize="11sp" />
 
             <EditText
                 android:id="@+id/editText"
@@ -118,6 +144,62 @@
                 android:layout_height="wrap_content"
                 app:backgroundTint="?attr/textcolor" />
 
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                app:cardBackgroundColor="?attr/cardbkgcolor">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="10dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Saved setups"
+                        android:textColor="?attr/textcolor"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <Spinner
+                        android:id="@+id/setupSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        app:backgroundTint="?attr/textcolor" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/saveSetupButton"
+                            style="?android:attr/buttonStyleSmall"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Save"
+                            android:textColor="?attr/textcolor"
+                            android:textSize="11sp" />
+
+                        <Button
+                            android:id="@+id/deleteSetupButton"
+                            style="?android:attr/buttonStyleSmall"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Delete"
+                            android:textColor="?attr/textcolor"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
             <Button
                 android:id="@+id/button"
                 android:layout_width="match_parent"
@@ -140,23 +222,76 @@
         </LinearLayout>
     </ScrollView>
 
+    <TextView
+        android:id="@+id/sessionStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginTop="4dp"
+        android:padding="6dp"
+        android:background="?attr/cardbkgcolor"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="Mining: stopped"
+        android:textColor="?attr/textcolor"
+        android:textSize="11sp" />
+
     <!-- Dedicated, always-visible log box with its own scrolling. -->
-    <FrameLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="160dp"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
         android:layout_marginBottom="8dp"
+        android:orientation="vertical"
         android:background="@drawable/log_box_background">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/clearLogsButton"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Clear"
+                android:textColor="?attr/textcolor"
+                android:textSize="11sp" />
+
+            <Button
+                android:id="@+id/copyLogsButton"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Copy"
+                android:textColor="?attr/textcolor"
+                android:textSize="11sp" />
+
+            <Button
+                android:id="@+id/shareLogsButton"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Share"
+                android:textColor="?attr/textcolor"
+                android:textSize="11sp" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/textView6"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
             android:gravity="top"
             android:scrollbars="vertical"
             android:textColor="?attr/textcolor"
             android:textSize="12sp" />
-    </FrameLayout>
+    </LinearLayout>
 
 </LinearLayout>
