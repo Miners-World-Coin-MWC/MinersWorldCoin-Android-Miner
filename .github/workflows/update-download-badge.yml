@@ -8,18 +8,22 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: update-download-badge
+  cancel-in-progress: true
+
 jobs:
   update-badge:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Get download count
         id: get
         run: |
-          count=$(curl -s "https://api.github.com/repos/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/releases/tags/1.9.4" \
-            | jq '.assets[] | select(.name=="androidMinerMWC.apk") | .download_count')
+          count=$(curl -fsSL "https://api.github.com/repos/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/releases/tags/1.9.5" \
+            | jq '[.assets[] | select(.name=="androidMinerMWC.apk") | .download_count] | first // 0')
           echo "DOWNLOADS=$count" >> $GITHUB_OUTPUT
 
       - name: Create Shields-style badge
@@ -33,7 +37,7 @@ jobs:
           WIDTH_VALUE=$(( 6 * ${#VALUE} + 10 ))
           WIDTH_TOTAL=$((WIDTH_LABEL + WIDTH_VALUE))
 
-          cat <<EOF > 194.svg
+          cat <<EOF > 195.svg
           <svg xmlns="http://www.w3.org/2000/svg" width="$WIDTH_TOTAL" height="20">
             <linearGradient id="smooth" x2="0" y2="100%">
               <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
@@ -55,6 +59,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add 194.svg
-          git commit -m "Update download badge" || echo "No changes"
-          git push
+          git add 195.svg
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Update download badge"
+            git pull --rebase
+            git push
+          fi

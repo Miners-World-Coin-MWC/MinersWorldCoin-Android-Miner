@@ -2,29 +2,33 @@ package com.nugetzrul3.minersworldcoinandroidminer
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.TextView
 import androidx.appcompat.widget.Toolbar
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
-import java.util.*
-import kotlin.concurrent.scheduleAtFixedRate
+import java.util.Timer
+import java.util.TimerTask
+import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 
 class MiningStats : AppCompatActivity() {
 
-    protected lateinit var sharedpref: SharedPref
-    private val client = OkHttpClient()
+    private lateinit var sharedpref: SharedPref
+    private var statsTimer: Timer? = null
+
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .callTimeout(15, TimeUnit.SECONDS)
+        .build()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         sharedpref = SharedPref(this)
-
-        if (sharedpref.loadNightModestate() == true) {
-            setTheme(R.style.DarkTheme)
-        } else {
-            setTheme(R.style.AppTheme)
-        }
+        setTheme(if (sharedpref.loadNightModestate()) R.style.DarkTheme else R.style.AppTheme)
 
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_mining_stats)
@@ -33,135 +37,108 @@ class MiningStats : AppCompatActivity() {
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        checkWalletLength()
+        findViewById<RadioGroup>(R.id.poolGroup).setOnCheckedChangeListener { _, _ ->
+            startPolling()
+        }
+
+        checkWallet()
     }
 
     private fun httpGetJson(url: String): JSONObject {
-        val request = Request.Builder()
-            .url(url)
-            .build()
-
+        val request = Request.Builder().url(url).build()
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw Exception("HTTP error: ${response.code}")
-            }
-            val body = response.body?.string() ?: "{}"
-            return JSONObject(body)
+            if (!response.isSuccessful) throw IllegalStateException("HTTP error: ${response.code}")
+            return JSONObject(response.body?.string().orEmpty())
         }
     }
 
-    private fun checkWalletLength() {
-        val wallet = intent.getStringExtra("walletaddress") ?: ""
-
+    private fun checkWallet() {
+        val wallet = intent.getStringExtra("walletaddress")?.trim().orEmpty()
         val errorText: TextView = findViewById(R.id.yourminer)
 
         when {
-            wallet.isEmpty() -> {
-                errorText.text = "No wallet specified"
-            }
-            wallet.length != 45 -> {
-                errorText.text = "Not a valid wallet! Please check your address"
-            }
+            wallet.isEmpty() -> errorText.text = "No wallet specified"
+            !looksLikeWallet(wallet) -> errorText.text =
+                "Not a valid wallet! Please check your address"
+
             else -> {
-                nomporyiimp()
+                // Default to NOMP so stats load without an extra tap.
+                findViewById<RadioButton>(R.id.selectNomp).isChecked = true
             }
         }
     }
 
-    private fun nomporyiimp() {
-        val radioButtonNomp: RadioButton = findViewById(R.id.selectNomp)
-        val radioButtonYiimp: RadioButton = findViewById(R.id.selectYIIMP)
+    private fun looksLikeWallet(wallet: String): Boolean {
+        val address = wallet.split(".")[0]
+        val base58 = Regex("^[59A][1-9A-HJ-NP-Za-km-z]{24,33}$")
+        val bech32 = Regex("^(mwc|advc)1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{6,87}$")
+        return base58.matches(address) || bech32.matches(address)
+    }
 
-        when {
-            radioButtonNomp.isChecked -> getmininginfoNOMP()
-            radioButtonYiimp.isChecked -> getmininginfoYIIMP()
-            else -> {
-                val errorSay: TextView = findViewById(R.id.yourminer)
-                errorSay.text = "Please specify which type of pool you are using"
+    private fun startPolling() {
+        val wallet = intent.getStringExtra("walletaddress")?.trim().orEmpty()
+        if (wallet.isEmpty()) return
+
+        val nomp = findViewById<RadioButton>(R.id.selectNomp).isChecked
+        val yiimp = findViewById<RadioButton>(R.id.selectYIIMP).isChecked
+        if (!nomp && !yiimp) {
+            findViewById<TextView>(R.id.yourminer).text =
+                "Please specify which type of pool you are using"
+            return
+        }
+
+        statsTimer?.cancel()
+        statsTimer = Timer("mining-stats", true).also { timer ->
+            timer.scheduleAtFixedRate(object : TimerTask() {
+                override fun run() = refreshStats(wallet, nomp)
+            }, 0, 5000)
+        }
+    }
+
+    private fun refreshStats(wallet: String, nomp: Boolean) {
+        try {
+            val url = if (nomp) {
+                "https://bmine.net/api/worker_stats?$wallet"
+            } else {
+                "http://miningmadness.com/api/wallet?address=$wallet"
+            }
+            val json = httpGetJson(url)
+
+            val miner = if (nomp) json.optString("miner", wallet) else wallet
+            val immature = if (nomp) json.optString("immature") else json.optString("unpaid")
+            val paid = if (nomp) json.optString("paid") else json.optString("paid24h")
+            val hashRate = (json.optString("totalHash").toFloatOrNull() ?: 0f).roundToInt()
+            val shares = json.optString("totalShares")
+
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                setText(R.id.yourminer, "Your Address: $miner")
+                setText(R.id.yourimmature, "Your Immature Balance: $immature MWC")
+                setText(R.id.yourpaid, "Paid out: $paid MWC")
+                setText(R.id.yourhashrate, "Your hashrate: $hashRate H/s")
+                setText(R.id.yourtotalshares, "Your shares: $shares")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Unable to fetch mining stats", e)
+            runOnUiThread {
+                if (!isFinishing && !isDestroyed) {
+                    setText(R.id.yourminer, "Error fetching mining stats")
+                }
             }
         }
     }
 
-    private fun getmininginfoNOMP() {
-        val wallet = intent.getStringExtra("walletaddress") ?: return
-
-        Timer().scheduleAtFixedRate(0, 5000) {
-            Thread {
-                try {
-                    val url = "https://bmine.net/api/worker_stats?$wallet"
-                    val json = httpGetJson(url)
-
-                    val info1 = json.getString("miner")
-                    val info2 = json.getString("immature")
-                    val info3 = json.getString("paid")
-                    val info4 = json.getString("totalHash")
-                    val info5 = json.getString("totalShares")
-
-                    runOnUiThread {
-                        findViewById<TextView>(R.id.yourminer).text =
-                            "Your Address: $info1"
-
-                        findViewById<TextView>(R.id.yourimmature).text =
-                            "Your Immature Balance: $info2 MWC"
-
-                        findViewById<TextView>(R.id.yourpaid).text =
-                            "Paid out: $info3 MWC"
-
-                        findViewById<TextView>(R.id.yourhashrate).text =
-                            "Your hashrate: ${(info4.toFloat().roundToInt() / 1000)} KH/s"
-
-                        findViewById<TextView>(R.id.yourtotalshares).text =
-                            "Your shares: $info5"
-                    }
-
-                } catch (e: Exception) {
-                    runOnUiThread {
-                        findViewById<TextView>(R.id.yourminer).text =
-                            "Error fetching mining stats"
-                    }
-                }
-            }.start()
-        }
+    private fun setText(id: Int, text: String) {
+        findViewById<TextView>(id).text = text
     }
 
-    private fun getmininginfoYIIMP() {
-        val wallet = intent.getStringExtra("walletaddress") ?: return
+    override fun onDestroy() {
+        statsTimer?.cancel()
+        statsTimer = null
+        super.onDestroy()
+    }
 
-        Timer().scheduleAtFixedRate(0, 5000) {
-            Thread {
-                try {
-                    val url = "http://miningmadness.com/api/wallet?address=$wallet"
-                    val json = httpGetJson(url)
-
-                    val info2 = json.getString("unpaid")
-                    val info3 = json.getString("paid24h")
-                    val info4 = json.getString("totalHash")
-                    val info5 = json.getString("totalShares")
-
-                    runOnUiThread {
-                        findViewById<TextView>(R.id.yourminer).text =
-                            "Your Address: $wallet"
-
-                        findViewById<TextView>(R.id.yourimmature).text =
-                            "Your Immature Balance: $info2 MWC"
-
-                        findViewById<TextView>(R.id.yourpaid).text =
-                            "Paid out: $info3 MWC"
-
-                        findViewById<TextView>(R.id.yourhashrate).text =
-                            "Your hashrate: ${(info4.toFloat().roundToInt() / 1000)} KH/s"
-
-                        findViewById<TextView>(R.id.yourtotalshares).text =
-                            "Your shares: $info5"
-                    }
-
-                } catch (e: Exception) {
-                    runOnUiThread {
-                        findViewById<TextView>(R.id.yourminer).text =
-                            "Error fetching mining stats"
-                    }
-                }
-            }.start()
-        }
+    companion object {
+        private const val TAG = "MiningStats"
     }
 }

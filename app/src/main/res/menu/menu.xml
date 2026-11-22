@@ -11,6 +11,8 @@
                 android:title="Website" />
             <item android:id="@+id/MinersWorldCoingithub"
                 android:title="Github"/>
+            <item android:id="@+id/mobileWallets"
+                android:title="Mobile Wallets" />
             <item android:id="@+id/Donate"
                 android:title="Donate to me"/>
             <item android:id="@+id/mygithub"

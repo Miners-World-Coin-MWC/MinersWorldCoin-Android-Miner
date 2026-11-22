@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name">minersworldcoin Android Miner</string>
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
     <string name="textView1">Welcome to the minersworldcoin Android Miner. To start mining, enter a pool url, followed by your minersworldcoin address, an optional password and the number of threads. Then click start.</string>
     <string name="hint1">Pool URL: <i>e.g stratum+tcp://bmine.net:3033</i></string>
     <string name="hint2">Wallet address: <i>9R5aTkm...</i></string>

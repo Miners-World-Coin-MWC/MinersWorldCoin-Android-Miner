@@ -1,7 +1,7 @@
 # ⛏️ MinersWorldCoin Android Miner
 
 * Total downloads ![Total Downloads](https://img.shields.io/github/downloads/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/total) 
-* 1.9.4 Downloads ![Downloads for 1.9.4](./194.svg?raw=true)
+* 1.9.5 Downloads ![Downloads for 1.9.5](./195.svg?raw=true)
 
 > Note: Antivirus engines may detect this application as a "crypto miner".
 > This is expected behavior because the application intentionally performs
@@ -125,6 +125,32 @@ You can track total downloads above via the badge.
 * Native C/C++ mining backend (NDK)
 * Yespower-based algorithm variants
 * ARM-optimized hashing
+
+### Building from source
+
+Requirements: JDK 17, Android SDK platform 35, NDK `25.1.8937393`, CMake `3.22.1`.
+
+For a signed local release build, create `app/keystore.properties` (gitignored):
+
+```properties
+storeFile=keystore.jks
+storePassword=...
+keyAlias=...
+keyPassword=...
+```
+
+Then run:
+
+```bash
+./gradlew assembleRelease testReleaseUnitTest
+```
+
+The signed APK is written to `app/build/outputs/apk/release/app-release.apk`.
+
+GitHub Actions produces the same signed release on every push and pull request
+(`.github/workflows/android-build.yml`). It expects these repository secrets:
+`ANDROID_KEYSTORE_BASE64` (base64 of the JKS file), `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`.
 
 ---
 

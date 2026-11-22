@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- The Yiimp stats endpoint only serves plain HTTP. Limit cleartext traffic to it. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">miningmadness.com</domain>
+    </domain-config>
+</network-security-config>

@@ -143,7 +143,8 @@
         </LinearLayout>
 
     </androidx.cardview.widget.CardView>
-    <LinearLayout
+    <RadioGroup
+        android:id="@+id/poolGroup"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -153,7 +154,6 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:gravity="center"
-            android:layout_weight="1"
             android:paddingRight="5dp"
             android:text="NOMP" />
 
@@ -163,7 +163,6 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:paddingLeft="5dp"
-            android:layout_weight="1"
             android:text="YIIMP" />
-    </LinearLayout>
+    </RadioGroup>
 </LinearLayout>

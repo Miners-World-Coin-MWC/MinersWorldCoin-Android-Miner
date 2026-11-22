@@ -5,86 +5,25 @@ import android.content.SharedPreferences
 
 class SharedPref(context: Context) {
 
-    internal var mysharedPref: SharedPreferences =
+    private val prefs: SharedPreferences =
         context.getSharedPreferences("filename", Context.MODE_PRIVATE)
 
-    // ------------------------
-    // NIGHT MODE
-    // ------------------------
+    fun setNightModeState(state: Boolean) = prefs.edit().putBoolean("NightMode", state).apply()
 
-    fun setNightModeState(state: Boolean) {
-        val editor = mysharedPref.edit()
-        editor.putBoolean("NightMode", state)
-        editor.apply()
-    }
+    fun loadNightModestate(): Boolean = prefs.getBoolean("NightMode", false)
 
-    fun loadNightModestate(): Boolean {
-        return mysharedPref.getBoolean("NightMode", false)
-    }
+    fun setBatteryNoticeShown(shown: Boolean) =
+        prefs.edit().putBoolean("battery_notice_shown", shown).apply()
 
-    // ------------------------
-    // BATTERY OPTIMIZATION NOTICE
-    // ------------------------
+    fun getBatteryNoticeShown(): Boolean = prefs.getBoolean("battery_notice_shown", false)
 
-    fun setBatteryNoticeShown(shown: Boolean) {
-        val editor = mysharedPref.edit()
-        editor.putBoolean("battery_notice_shown", shown)
-        editor.apply()
-    }
+    fun setNotificationsEnabled(enabled: Boolean) =
+        prefs.edit().putBoolean("notifications_enabled", enabled).apply()
 
-    fun getBatteryNoticeShown(): Boolean {
-        return mysharedPref.getBoolean("battery_notice_shown", false)
-    }
+    fun notificationsEnabled(): Boolean = prefs.getBoolean("notifications_enabled", true)
 
-    // ------------------------
-    // START BUTTON STATE
-    // ------------------------
+    fun setDonationsEnabled(enabled: Boolean) =
+        prefs.edit().putBoolean("donations_enabled", enabled).apply()
 
-    fun setButtonModeState(state: Boolean) {
-        val editor = mysharedPref.edit()
-        editor.putBoolean("STARTTRUE", state)
-        editor.apply()
-    }
-
-    fun loadButtonModestate(): Boolean {
-        return mysharedPref.getBoolean("STARTTRUE", true)
-    }
-
-    // ------------------------
-    // MINING STATE
-    // ------------------------
-
-    fun miningtrue(state: Boolean) {
-        val editor = mysharedPref.edit()
-        editor.putBoolean("miningtrue", state)
-        editor.apply()
-    }
-
-    fun loadminingstate(): Boolean {
-        return mysharedPref.getBoolean("miningtrue", false)
-    }
-
-    // =====================================================
-    // 🔥 MANUAL DIFFICULTY SUPPORT (NEW)
-    // =====================================================
-
-    fun setManualDiffEnabled(enabled: Boolean) {
-        val editor = mysharedPref.edit()
-        editor.putBoolean("manual_diff_enabled", enabled)
-        editor.apply()
-    }
-
-    fun getManualDiffEnabled(): Boolean {
-        return mysharedPref.getBoolean("manual_diff_enabled", false)
-    }
-
-    fun setManualDiffValue(value: String) {
-        val editor = mysharedPref.edit()
-        editor.putString("manual_diff_value", value)
-        editor.apply()
-    }
-
-    fun getManualDiffValue(): String {
-        return mysharedPref.getString("manual_diff_value", "") ?: ""
-    }
+    fun donationsEnabled(): Boolean = prefs.getBoolean("donations_enabled", true)
 }

@@ -10,7 +10,7 @@ The **MWC Android Miner** allows anyone to mine MinersWorldCoin directly from th
 
 1. Open your Android device’s browser.
 2. Download the latest MWC Android Miner APK from GitHub:
-   [Download MWC Android Miner v1.9.4](https://github.com/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/releases/download/1.9.4/androidMinerMWC.apk)
+   [Download MWC Android Miner v1.9.5](https://github.com/Miners-World-Coin-MWC/MinersWorldCoin-Android-Miner/releases/download/1.9.5/androidMinerMWC.apk)
 3. Wait for the download to complete.
 
 > ![Screenshot of Android Miner APK Download](https://media.discordapp.net/attachments/1442194072147067083/1477786148930851040/Screenshot_20260301_215335_Opera_GX.jpg?ex=69a60719\&is=69a4b599\&hm=7544c4a457b365d13e7264145be455a9a0bd5d01fac4f5d039cea8f2ad2af50c&=\&format=webp\&width=440\&height=953)
@@ -51,9 +51,10 @@ Before installing APK files, your Android device needs permission to install app
 
 ## 5️⃣ Configure the Miner
 
-1. Enter your **MWC Wallet Address** where you want mining rewards to be sent.
-2. Adjust the **CPU threads** you want to dedicate for mining.
-3. Set any optional settings such as **start on boot** or **mining intensity**.
+1. Enter the **pool URL** (for example `stratum+tcp://bmine.net:3033`).
+2. Enter your **MWC/ADVC wallet address** where you want mining rewards to be sent.
+3. Optionally enter a **pool password**.
+4. Select the **algorithm** (MWC or ADVC) and the **CPU threads** to dedicate to mining.
 
 > ![Screenshot of Miner Settings](https://media.discordapp.net/attachments/1442194072147067083/1477786545175134341/image0.jpg?ex=69a60778\&is=69a4b5f8\&hm=b8d155df444f6533fdcbf73b49ec72a1ab087b17f263d8f9555c4be3a1e849f0&=\&format=webp\&width=440\&height=953)
 

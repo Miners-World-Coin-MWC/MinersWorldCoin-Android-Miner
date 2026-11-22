@@ -17,3 +17,4 @@ distribution/curl
 distribution/janson
 distribution/zlib
 /app/keystore.jks
+/app/keystore.properties

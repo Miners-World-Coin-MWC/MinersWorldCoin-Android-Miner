@@ -19,3 +19,12 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# JNI resolves these by literal name (FindClass/GetStaticMethodID), so R8 must
+# not rename the class, the native methods, or the native log callback.
+-keepclasseswithmembernames,includedescriptorclasses class * {
+    native <methods>;
+}
+-keep class com.nugetzrul3.minersworldcoinmininglibrary.SugarMiner {
+    *;
+}

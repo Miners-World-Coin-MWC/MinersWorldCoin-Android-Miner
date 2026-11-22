@@ -5,7 +5,6 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:gravity="top"
     android:background="?attr/backgroundcolor"
     tools:context=".MainActivity">
 
@@ -17,131 +16,147 @@
         app:title="minersworldcoin Android Miner"
         app:titleTextColor="?attr/textcolor" />
 
-    <androidx.cardview.widget.CardView
+    <!-- The form scrolls independently of the log panel below. -->
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="6dp"
-        app:cardBackgroundColor="?attr/cardbkgcolor">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="12dp">
 
-            <TextView
-                android:id="@+id/textView1"
+            <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="6dp"
-                android:paddingLeft="12px"
-                android:paddingTop="24px"
-                android:paddingRight="12px"
-                app:fontFamily="@font/ubuntu_regular"
-                android:text="@string/textView1"
+                android:layout_marginTop="6dp"
+                app:cardBackgroundColor="?attr/cardbkgcolor">
+
+                <TextView
+                    android:id="@+id/textView1"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="12dp"
+                    android:lineSpacingExtra="2dp"
+                    app:fontFamily="@font/ubuntu_regular"
+                    android:text="@string/textView1"
+                    android:textColor="?attr/textcolor"
+                    android:textSize="14sp" />
+            </androidx.cardview.widget.CardView>
+
+            <EditText
+                android:id="@+id/editText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="@string/hint1"
+                android:inputType="textUri"
                 android:textColor="?attr/textcolor"
-                android:textSize="15sp" />
+                android:textColorHint="?attr/textcolor"
+                app:backgroundTint="?attr/textcolor"
+                android:textSize="14sp" />
+
+            <EditText
+                android:id="@+id/editText2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:hint="@string/hint2"
+                android:inputType="text"
+                android:singleLine="true"
+                android:textColor="?attr/textcolor"
+                android:textColorHint="?attr/textcolor"
+                app:backgroundTint="?attr/textcolor"
+                android:textSize="14sp" />
+
+            <EditText
+                android:id="@+id/editText3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:hint="@string/hint3"
+                android:inputType="text"
+                android:singleLine="true"
+                android:textColor="?attr/textcolor"
+                android:textColorHint="?attr/textcolor"
+                app:backgroundTint="?attr/textcolor"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/threadLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Thread Count"
+                android:textColor="?attr/textcolor"
+                android:paddingTop="10dp"
+                android:paddingBottom="4dp"
+                android:textSize="13sp" />
+
+            <Spinner
+                android:id="@+id/threadSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:backgroundTint="?attr/textcolor" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Algorithm"
+                android:textColor="?attr/textcolor"
+                android:paddingTop="10dp"
+                android:paddingBottom="4dp"
+                android:textSize="13sp" />
+
+            <Spinner
+                android:id="@+id/spinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:backgroundTint="?attr/textcolor" />
+
+            <Button
+                android:id="@+id/button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/roundshapebutton"
+                android:text="Start"
+                android:textColor="?attr/textcolor" />
+
+            <Switch
+                android:id="@+id/darkmode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="8dp"
+                android:text="Dark Mode"
+                android:textColor="?attr/textcolor"
+                android:textSize="14sp" />
+
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
+    </ScrollView>
 
-    <EditText
-        android:id="@+id/editText"
+    <!-- Dedicated, always-visible log box with its own scrolling. -->
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ems="10"
-        android:hint="@string/hint1"
-        android:inputType="textPersonName"
-        android:textColor="?attr/textcolor"
-        android:textColorHint="?attr/textcolor"
-        app:backgroundTint="?attr/textcolor"
-        android:textSize="14sp" />
+        android:layout_height="160dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/log_box_background">
 
-    <EditText
-        android:id="@+id/editText2"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ems="10"
-        android:hint="@string/hint2"
-        android:inputType="textPersonName"
-        android:singleLine="true"
-        android:textColor="?attr/textcolor"
-        android:textColorHint="?attr/textcolor"
-        app:backgroundTint="?attr/textcolor"
-        android:textSize="14sp" />
-
-    <EditText
-        android:id="@+id/editText3"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ems="10"
-        android:hint="@string/hint3"
-        android:inputType="textPersonName"
-        android:textColor="?attr/textcolor"
-        android:textColorHint="?attr/textcolor"
-        app:backgroundTint="?attr/textcolor"
-        android:textSize="14sp" />
-
-    <!-- THREAD LABEL -->
-    <TextView
-        android:id="@+id/threadLabel"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Thread Count"
-        android:textColor="?attr/textcolor"
-        android:paddingTop="10dp"
-        android:paddingBottom="4dp"
-        android:textSize="14sp" />
-
-    <!-- THREAD SPINNER -->
-    <Spinner
-        android:id="@+id/threadSpinner"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:backgroundTint="?attr/textcolor" />
-
-    <!-- ALGORITHM LABEL -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Algorithm"
-        android:textColor="?attr/textcolor"
-        android:paddingTop="10dp"
-        android:paddingBottom="4dp"
-        android:textSize="14sp" />
-
-    <!-- ALGORITHM SPINNER -->
-    <Spinner
-        android:id="@+id/spinner"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:backgroundTint="?attr/textcolor" />
-
-    <Button
-        android:id="@+id/button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
-        android:background="@drawable/roundshapebutton"
-        android:text="Start"
-        android:textColor="?attr/textcolor" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center">
-
-        <Switch
-            android:id="@+id/darkmode"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Dark Mode"
-            android:textColor="?attr/textcolor" />
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/textView6"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="bottom"
-        android:textColor="?attr/textcolor"
-        android:scrollbars="vertical" />
+        <TextView
+            android:id="@+id/textView6"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="top"
+            android:scrollbars="vertical"
+            android:textColor="?attr/textcolor"
+            android:textSize="12sp" />
+    </FrameLayout>
 
 </LinearLayout>

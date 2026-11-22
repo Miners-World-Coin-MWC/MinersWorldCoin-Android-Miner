@@ -1415,8 +1415,15 @@ static void signal_handler(int sig)
 #endif
 
 int init(void(*cb)(const char *format, va_list arg)) {
+	static int initialized = 0;
+
 	vprintf_cb = cb;
 	have_stratum = true;
+
+	if (initialized) {
+		return 0;
+	}
+	initialized = 1;
 
 	pthread_mutex_init(&applog_lock, NULL);
 	pthread_mutex_init(&run_lock, NULL);
@@ -1459,23 +1466,28 @@ int start(const char *url, const char *user, const char *pass, const int n_threa
 	long flags;
 	int i;
 
+	opt_n_threads = n_threads ? n_threads : num_processors;
+	opt_algo = algo;
+
+	pthread_mutex_lock(&run_lock);
+	if (is_running()) {
+		applog(LOG_INFO, "already running");
+		pthread_mutex_unlock(&run_lock);
+		return 1;
+	}
+
 	if (url == NULL) {
 		opt_benchmark = true;
 		have_stratum = false;
 	} else {
+		free(rpc_url);
+		free(rpc_user);
+		free(rpc_pass);
 		rpc_url = strdup(url);
 		rpc_user = strdup(user);
 		rpc_pass = strdup(pass);
-	}
-
-	opt_n_threads = n_threads ? n_threads : num_processors;
-    opt_algo = algo;
-
-	pthread_mutex_lock(&run_lock);
-    if (is_running()) {
-		applog(LOG_INFO, "already running: thr_info[%d].pth=%lld", i, thr_info[i].pth);
-		pthread_mutex_unlock(&run_lock);
-		return 0;
+		opt_benchmark = false;
+		have_stratum = true;
 	}
 
 	flags = !opt_benchmark && strncmp(rpc_url, "https:", 6)
@@ -1483,20 +1495,20 @@ int start(const char *url, const char *user, const char *pass, const int n_threa
 			: CURL_GLOBAL_ALL;
 	if (curl_global_init(flags)) {
 		applog(LOG_ERR, "CURL initialization failed");
-		return 1;
+		goto fail;
 	}
 
 	work_restart = calloc(opt_n_threads, sizeof(*work_restart));
 	if (!work_restart)
-		return 1;
+		goto fail;
 
 	thr_info = calloc(opt_n_threads + 3, sizeof(*thr));
 	if (!thr_info)
-		return 1;
+		goto fail;
 
 	thr_hashrates = (double *) calloc(opt_n_threads, sizeof(double));
 	if (!thr_hashrates)
-		return 1;
+		goto fail;
 
 	/* init workio thread info */
 	work_thr_id = opt_n_threads;
@@ -1504,12 +1516,12 @@ int start(const char *url, const char *user, const char *pass, const int n_threa
 	thr->id = work_thr_id;
 	thr->q = tq_new();
 	if (!thr->q)
-		return 1;
+		goto fail;
 
 	/* start work I/O thread */
 	if (pthread_create(&thr->pth, NULL, workio_thread, thr)) {
 		applog(LOG_ERR, "workio thread create failed");
-		return 1;
+		goto fail;
 	}
 
 	if (want_longpoll && !have_stratum) {
@@ -1519,12 +1531,12 @@ int start(const char *url, const char *user, const char *pass, const int n_threa
 		thr->id = longpoll_thr_id;
 		thr->q = tq_new();
 		if (!thr->q)
-			return 1;
+			goto fail;
 
 		/* start longpoll thread */
 		if (unlikely(pthread_create(&thr->pth, NULL, longpoll_thread, thr))) {
 			applog(LOG_ERR, "longpoll thread create failed");
-			return 1;
+			goto fail;
 		}
 	}
 	if (want_stratum) {
@@ -1534,12 +1546,12 @@ int start(const char *url, const char *user, const char *pass, const int n_threa
 		thr->id = stratum_thr_id;
 		thr->q = tq_new();
 		if (!thr->q)
-			return 1;
+			goto fail;
 
 		/* start stratum thread */
 		if (unlikely(pthread_create(&thr->pth, NULL, stratum_thread, thr))) {
 			applog(LOG_ERR, "stratum thread create failed");
-			return 1;
+			goto fail;
 		}
 
 		if (have_stratum)
@@ -1553,11 +1565,11 @@ int start(const char *url, const char *user, const char *pass, const int n_threa
 		thr->id = i;
 		thr->q = tq_new();
 		if (!thr->q)
-			return 1;
+			goto fail;
 
 		if (unlikely(pthread_create(&thr->pth, NULL, miner_thread, thr))) {
 			applog(LOG_ERR, "thread %d create failed", i);
-			return 1;
+			goto fail;
 		}
 	}
 	pthread_mutex_unlock(&run_lock);
@@ -1573,11 +1585,19 @@ int start(const char *url, const char *user, const char *pass, const int n_threa
 	//applog(LOG_INFO, "workio thread dead, exiting.");
 
 	return 0;
+
+fail:
+	pthread_mutex_unlock(&run_lock);
+	return 1;
 }
 
 int stop() {
+	if (thr_info == NULL) {
+		return 0;
+	}
+
 	pthread_mutex_lock(&run_lock);
-    for (int i = 0; i < opt_n_threads + 3; i++) {
+	for (int i = 0; i < opt_n_threads + 3; i++) {
 		if (thr_info[i].run) {
 			applog(LOG_INFO, "stopping thr_info[%d].pth=%lld", i, thr_info[i].pth);
 			thr_info[i].run = 0;
@@ -1586,15 +1606,22 @@ int stop() {
 
 	restart_threads(); // force to exit immediately
 
-    int wait = 1;
-	while(wait) {
+	int wait = 1;
+	int waited = 0;
+	while (wait && waited++ < 100) {
 		usleep(100000);
 		wait = 0;
 		for (int i = 0; i < opt_n_threads + 3; i++) {
 			if (thr_info[i].run) {
 				wait = 1;
 			}
-        }
+		}
+	}
+	if (wait) {
+		applog(LOG_INFO, "timed out waiting for miner threads; forcing shutdown");
+		for (int i = 0; i < opt_n_threads + 3; i++) {
+			thr_info[i].run = 0;
+		}
 	}
 	pthread_mutex_unlock(&run_lock);
 
