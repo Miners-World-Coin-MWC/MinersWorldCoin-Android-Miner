@@ -20,11 +20,22 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install SDK components
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;25.1.8937393" "cmake;3.22.1"
+      - name: Install Android SDK components
+        run: |
+          # The hosted runners already include the Android SDK. Do not use
+          # android-actions/setup-android@v3 here: it installs the removed
+          # "tools" package and fails on current cmdline-tools releases.
+          export ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | head -n 1)"
+          fi
+          echo "Using sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "ndk;25.1.8937393" "cmake;3.22.1"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -58,7 +69,12 @@ jobs:
 
       - name: Verify APK is signed
         run: |
-          apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner 2>/dev/null | sort -V | tail -n 1)"
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::apksigner not found in $ANDROID_HOME/build-tools"
+            exit 1
+          fi
+          "$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk
 
       - name: Rename APK for release
         run: cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/androidMinerMWC.apk
