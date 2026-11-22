@@ -26,8 +26,8 @@ add_library(
     crypto/yespower-1.0.1-power2b/blake2b.c
     util.c
     YespowerMbc.c
-    YespowerMwc.c
-    YespowerAdvc.c
+    yespowerMwc.c
+    yespowerAdvc.c
     libcpuminer.c
 )
 
